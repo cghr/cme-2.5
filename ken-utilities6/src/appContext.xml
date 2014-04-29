@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans 
+       http://www.springframework.org/schema/beans/spring-beans-2.0.xsd
+       http://www.springframework.org/schema/context
+       http://www.springframework.org/schema/beans/spring-context-2.0.xsd
+       ">
+<!-- Used by Kentropy Utility -->
+<bean id="springContext" class="com.kentropy.util.SpringApplicationContext">
+</bean>
+
+<bean id="basepath" class="java.lang.String">
+<constructor-arg type="java.lang.String" value="/opt/apache-tomcat-6.0.37/webapps/cmebilling">
+</constructor-arg>
+</bean>
+
+
+<bean id="mqueue_archive" class="java.lang.String">
+<constructor-arg type="java.lang.String"  value="#{basepath}/data/archive/mqueue/">
+</constructor-arg>
+</bean>
+
+<bean id="image_archive" class="java.lang.String">
+<constructor-arg type="java.lang.String"  value="#{basepath}/data/archive/imageArchive/">
+</constructor-arg>
+</bean>
+
+<bean id="cme-billing-url" class="java.lang.String">
+<constructor-arg type="java.lang.String"  value="http://localhost:8080/cmebilling/home">
+</constructor-arg>
+</bean>
+
+<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+<property name="driverClassName" value="com.mysql.jdbc.Driver" />
+<property name="url" value="jdbc:mysql://localhost:3306/cmebilling" />
+<property name="username" value="root" />
+<property name="password" value="password" />
+</bean>
+
+<bean id="cronPath" class="java.util.Properties">
+<constructor-arg>
+<props>
+  <prop key="cronPath">#{basepath}/data/scheduler.properties</prop>
+</props>
+</constructor-arg>
+</bean>
+
+<bean id="db" class="java.util.Properties">
+<constructor-arg>
+<props>
+<prop key="driver">com.mysql.jdbc.Driver</prop>
+<prop key="dburl">jdbc:mysql://localhost:3306/cmebilling?autoReconnect=true</prop>
+<prop key="user">root</prop>
+<prop key="passwd">password</prop>
+<prop key="imagePath">#{basepath}/data/split/</prop>
+</props>
+</constructor-arg>
+</bean>
+
+<bean id="userDAO" class="com.kentropy.security.jaap.dao.UserDAO" scope="prototype">
+<property name="jt" ref="jdbcTemp"></property>
+</bean>
+
+
+<bean id="authentication" class="java.util.Properties">
+<constructor-arg>
+<props>
+<!--Values for md5 : 'enable','disable'  -->
+<prop key="md5">enable</prop>
+<prop key="usersTable">accounts</prop>
+<prop key="usernameField">username</prop>
+<prop key="passwordField">password</prop>
+<prop key="rolesField">roles</prop>
+</props>
+</constructor-arg>
+</bean>
+
+<bean id="authorisation" class="java.util.Properties">
+<constructor-arg>
+<props>
+<prop key="failurePage">../login</prop>
+</props>
+</constructor-arg>
+</bean>
+
+<!-- Used for Connection Pooling -->
+<bean id="jdbcTemp" class="org.springframework.jdbc.core.JdbcTemplate">
+<property name="dataSource" ref="dataSource">
+</property>
+</bean>
+
+<bean id="test" class="java.util.Properties">
+	<constructor-arg>
+		<props>
+			<prop key="default">transfer-va</prop>
+                       <prop key="cme">transfer-va</prop>
+		</props>
+	</constructor-arg>
+</bean>
+
+<bean id="transfer-va" class="java.util.Properties">
+<constructor-arg>
+<props>
+
+
+<!--<prop key="type">URL</prop>-->
+
+<prop key="type">local</prop>
+<prop key="server">localhost</prop>
+<prop key="sendPort">8086</prop>
+<prop key="receivePort">8087</prop>
+<!-- Replace with appropriate values for CME Application -->
+<prop key="sendUrl">http://localhost:8080/cme/Transfer.do?action=upload</prop>
+<prop key="receiveUrl">http://localhost:8080/cme/Transfer.do?action=download</prop>
+<prop key="path">#{basepath}/data/tmp</prop>
+<prop key="dwdb">qa</prop>
+<prop key="authUrl">http://localhost:8080/cme</prop>
+<prop key="md5">enable</prop>
+<prop key="mailboxPath">#{basepath}/mbox</prop>
+
+</props>
+</constructor-arg>
+</bean>
+
+<bean id="client-authentication" class="java.util.Properties">
+<constructor-arg>
+<props>
+<prop key="URL">http://localhost:8080/cmebilling</prop>
+<prop key="md5">enable</prop>
+<prop key="login">local</prop>
+<prop key="username">admin</prop>
+<prop key="password">census</prop>
+</props>
+</constructor-arg>
+</bean>
+
+<bean id="admin" class="com.kentropy.security.jaap.model.User">
+<property name="unAuthorisedPages">
+<list>
+</list>
+</property>
+</bean>
+
+<bean id="physician" class="com.kentropy.security.jaap.model.User">
+<property name="unAuthorisedPages">
+<list>
+<value>/admin/*</value>
+<value>/reports/*</value>
+<value>/home/*</value>
+<value>/manageUsers/*</value>
+</list>
+</property>
+</bean>
+
+
+<bean id="support" class="com.kentropy.security.jaap.model.User">
+<property name="unAuthorisedPages">
+<list>
+<value>/admin/*</value>
+<value>/manageUsers/*</value>
+</list>
+</property>
+</bean>
+
+
+<bean id="analyst" class="com.kentropy.security.jaap.model.User">
+<property name="unAuthorisedPages">
+<list>
+<value>/admin/*</value>
+<value>/manageUsers/*</value>
+</list>
+</property>
+</bean>
+
+<bean id="smr" class="com.kentropy.security.jaap.model.User">
+<property name="unAuthorisedPages">
+<list>
+<value>/admin/*</value>
+<value>/manageUsers/*</value>
+</list>
+</property>
+</bean>
+
+
+<bean id="accountant" class="com.kentropy.security.jaap.model.User">
+<property name="unAuthorisedPages">
+<list>
+<value>/admin/*</value>
+<value>/manageUsers/*</value>
+</list>
+</property>
+</bean>
+
+<bean id="mail" class="java.util.Properties">
+<constructor-arg>
+<props>
+<prop key="host">localhost</prop>
+<prop key="smtpuser">root</prop>
+<prop key="smtppassword">password</prop>
+</props>
+</constructor-arg>
+</bean>
+
+
+<bean id="webServices" class="java.util.Properties">
+<constructor-arg>
+<props>
+<prop key="mailService">http://www.cghr.org:8080/WebServices/Email.do</prop>
+<prop key="smsService">http://sms.foosms.com/pushsms.php?username=cghrmds%26api_password=6c834khmz0t7igz0p%26sender=MDSLRN%26to=mobileno%26message=messageBody%26priority=11</prop>
+</props>
+</constructor-arg>
+</bean>
+
+<bean id="cmeservices" class="com.kentropy.cme.maintenance.CMEServices">
+</bean>
+
+</beans>

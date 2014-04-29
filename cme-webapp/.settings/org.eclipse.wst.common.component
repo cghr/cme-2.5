@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?><project-modules id="moduleCoreId" project-version="1.5.0">
+    <wb-module deploy-name="cme-webapp">
+        <wb-resource deploy-path="/" source-path="/target/m2e-wtp/web-resources"/>
+        <wb-resource deploy-path="/" source-path="/src/main/webapp" tag="defaultRootSource"/>
+        <wb-resource deploy-path="/WEB-INF/classes" source-path="/src/main/java"/>
+        <dependent-module archiveName="ken-cme-contextstartup-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-cme-contextstartup/ken-cme-contextstartup">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-cme-controller-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-cme-controller/ken-cme-controller">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-cme-decrypt-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-cme-decrypt/ken-cme-decrypt">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-cme-maintenance-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-cme-maintenance/ken-cme-maintenance">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-cme-notifications-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-cme-notifications/ken-cme-notifications">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-cme-reports-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-cme-reports/ken-cme-reports">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-crypt-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-crypt/ken-crypt">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-csrfGuard-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-csrfGuard/ken-csrfGuard">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-grid-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-grid/ken-grid">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-jxl-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-jxl/ken-jxl">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-mail-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-mail/ken-mail">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-qa-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-qa/ken-qa">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-qa-transformations-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-qa-transformations/ken-qa-transformations">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-security-client-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-security-client/ken-security-client">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-security-jaap-server-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-security-jaap-server/ken-security-jaap-server">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-services2-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-services2/ken-services2">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-spring-3.0-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-spring-3.0/ken-spring-3.0">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-threadsafeconnector-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-threadsafeconnector/ken-threadsafeconnector">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-transfer-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-transfer/ken-transfer">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-util-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-util/ken-util">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-utilities6-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-utilities6/ken-utilities6">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="ken-xml2excel-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ken-xml2excel/ken-xml2excel">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="kencomponents-current-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/kencomponents-current/kencomponents-current">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="kenlogging-current-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/kenlogging-current/kenlogging-current">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="kenxuidb-current-2.5.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/kenxuidb-current/kenxuidb-current">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <property name="context-root" value="cme-webapp"/>
+        <property name="java-output-path" value="/cme-webapp/target/classes"/>
+    </wb-module>
+</project-modules>

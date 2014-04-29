@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<Datasets id="staticdata">
+<dataset id="symptomlist">
+<dataset id="Chest pain">
+<dataset id="1" question="Location of pain (chest, upper abdominal, etc)"/>
+<dataset id="2" question="Spread of pain to any part of the body, e.g., pain in behind the central part of chest (retrosternal), hand, shoulder, back etc. "/>
+<dataset id="3" question="Whether pain was increased by cough/deep breath, or by touching the area or walking/after eating"/>
+<dataset id="4" question="Associated symptoms: breathlessness, sweating, vomiting, loss of consciousness"/>
+<dataset id="5" question="Write history from childhood till death: any history of fever with joint pain and swelling, chest pain or heart attack and any treatment, medication in detail, including surgeries."/>
+</dataset>
+<dataset id="Cough">
+<dataset id="1" question="Cough: dry, productive (with sputum) or with blood (haemoptysis), "/>
+<dataset id="2" question="Severe bouts of cough with whoop at the end, cough only at night, enquire when cough was worse (day or night)"/>
+<dataset id="3" question="Always sitting in bed for relief of cough"/>
+<dataset id="4" question=" Localized pain (pain at the sides of the chest wall increased by cough and/or deep breath)"/>
+</dataset>
+<dataset id="Breathlessness">
+<dataset id="1" question="Write details of onset and progression of breathlessness {e.g. breathlessness is initially on exertion  (i.e., not present at rest), but progressively worsens to a stage of breathlessness even at rest}"/>
+<dataset id="2" question="Breathlessness occurring soon after lying flat and relieved by sitting up "/>
+<dataset id="3" question="Breathlessness at rest, triggered by allergy or chest infection "/>
+<dataset id="4" question="Episodes or attacks of wheeze and breathlessness of sudden onset (may be triggered by allergy or chest infections)"/>
+<dataset id="5" question="May be accompanied by swelling of hands and legs, generalized swelling of the body, enlarged abdominal swelling or fluids in chest"/>
+</dataset>
+<dataset id="Fever">
+<dataset id="1" question="High grade/low grade fever for how many days?"/>
+<dataset id="2" question="Continuous with no normal temperature, intermittent (on and off) fever, or occasional"/>
+<dataset id="3" question="Repeated attacks of fever with chills, rigor (shaking), sweating, myalgia (muscle pain)"/>
+<dataset id="4" question="High fever followed by skin eruption (rash/blisters) the next day"/>
+<dataset id="5" question="Fits, confusion, drowsiness, coma"/>
+<dataset id="6" question="Associated with cold, dry cough, headache, generalized ache"/>
+<dataset id="7" question="Coated tongue, jaundice, diarrhoea, burning sensation while passing urine,  chest pain, neck stiffness, irritated and does not like light, sound etc"/>
+<dataset id="8" question="Fever for more than 30 days: refer to symptoms for HIV/AIDS"/>
+</dataset>
+<dataset id="Paralysis">
+<dataset id="1" question="Was paralyses accompanied by sudden loss of consciousness?"/>
+<dataset id="2" question="Time of onset: during activity or in sleep"/>
+<dataset id="3" question="Progression: over minutes, hours or noticed on waking up with or without vomiting/ headache"/>
+<dataset id="4" question="Note if paralysis in any part of the body in the month preceding death"/>
+<dataset id="5" question="Write affected part of the body: half of the body, one upper limbâ€“ right/left side, face, loss of speech, lower limbs"/>
+<dataset id="6" question="Was it associated with loss of memory, loss of vision, altered speech, loss of urinary control, loss of sensation of any part of body, Other features: convulsions (fits), neck stiffness, giddiness, hypertension"/>
+</dataset>
+<dataset id="Seizures/Fits">
+<dataset id="1" question="History of sudden jerky movements of limbs with or without loss of consciousness accompanied by rolling of eye balls and frothing of mouth, with loss of consciousness, loss of memory, awake between convulsions or not, tongue bite, bed wetting, confused"/>
+<dataset id="2" question="History of head injury "/>
+<dataset id="3" question="Type and duration of treatment taken etc."/>
+</dataset>
+<dataset id="Difficulty in passing urine or low urine output">
+<dataset id="1" question="Abrupt onset with puffiness of face or swelling of eyelids in the morning, low urine amount, passing urine with pus, passing urine with blood, localized/generalised swelling of hands and legs, swelling or fluid in the abdomen and/or fluid in the chest"/>
+<dataset id="2" question="Frequent passage of urine, pain in middle of lower abdomen, intense desire to pass more urine even after the bladder has been emptied"/>
+<dataset id="3" question="Tenderness in the side of abdomen, sudden onset of pain in one or both loins, spreading to lateral part of lower abdomen and above genital area"/>
+<dataset id="4" question="Pallor, nausea, vomiting"/>
+<dataset id="5" question="Become dull, drowsy, coma (unconsciousness) and death"/>
+<dataset id="6" question="History of kidney transplantation"/>
+<dataset id="7" question="History of high blood pressure"/>
+</dataset>
+<dataset id="Oedema (swelling of feet and hands or body)">
+<dataset id="1" question="Did she/he look pale?"/>
+<dataset id="2" question="Loss of weight"/>
+<dataset id="3" question="Presence of breathlessness at rest; aggravated by walking (refer symptoms under 2.2)"/>
+<dataset id="4" question="Fatigue, feeling the heart beat faster, nausea, loss of appetite"/>
+<dataset id="5" question="Generalized swelling of feet and hands"/>
+</dataset>
+<dataset id="Abdominal pain or swelling">
+<dataset id="1" question="Abdominal pain: localized or generalized, type (sharp, dull, throbbing, continuous) and relationship to food intake (pain was more on empty stomach and relieved after taking food or pain increased after taking food)"/>
+<dataset id="2" question="Abdominal distension : sudden or gradual"/>
+<dataset id="3" question="Other symptoms: loss of appetite, nausea, constipation, black stools, vomiting with blood,  breathlessness and sweating with sudden abdominal pain"/>
+<dataset id="4" question="History of surgery or trauma or cancer"/>
+<dataset id="5" question="Lump/mass in abdomen"/>
+<dataset id="6" question="Difficulty in swallowing: solid/liquid food"/>
+</dataset>
+<dataset id="Stomach pain/Ulcers">
+<dataset id="1" question="Had peptic ulcer: burning pain, localized to middle part of upper abdomen or extending to chest, recurrent abdominal pain"/>
+<dataset id="2" question="Typically pain wakes the patient from sleep around 2 AM and is relieved by food, milk, antacids, belching or vomiting"/>
+<dataset id="3" question="Periodicity: pain occurs in episodes, lasting 1-3 weeks every time, 3-4 times per year"/>
+<dataset id="4" question="Natural history of spontaneous re-occurrence and free from symptom lasting for decades or even life "/>
+<dataset id="5" question="Relationship to food: pain occurs on empty stomach (hunger pain) and is relieved by food or antacids"/>
+<dataset id="6" question=" Vomited blood, had been drinking alcohol "/>
+<dataset id="7" question="Other symptoms: loss of appetite, nausea"/>
+</dataset>
+<dataset id="Diarrhoea/Dysentery or blood in stools">
+<dataset id="1" question="Loose/semisolid stools, blood /mucus in stools, watery/rice water like stools, Painless profuse (large quantity) diarrhoea"/>
+<dataset id="2" question="How many times a day at worst?"/>
+<dataset id="3" question="Vomiting, excessive thirst and dehydration (less water in the body: sunken eyes, diminished urine amount, dried tongue) ,fever  ( sudden onset)."/>
+<dataset id="4" question="Blood in the stool, colour red or black. Any history of cancer?"/>
+<dataset id="5" question="Did the deceased have food in any party or any gathering few days prior to the event of diarrhoea? If yes, did any other person who had food from the same party also suffer from loose motion?"/>
+</dataset>
+<dataset id="Jaundice (yellowness in the white part of eyes)">
+<dataset id="1" question="Eye/skin colour change to yellow, urine also dark yellow in colour"/>
+<dataset id="2" question="Marked swollen, bloated abdomen with swelling of feet and then face and hands"/>
+<dataset id="3" question="Vomiting blood, history of drinking alcohol regularly"/>
+<dataset id="4" question="Any history of cancer"/>
+</dataset>
+<dataset id="Local swelling in the groin/scrotum">
+<dataset id="1" question="History of reducible swelling in scrotum (used to appear on coughing or straining and then disappeared)"/>
+<dataset id="2" question="Able to push back the swelling with out pain"/>
+<dataset id="3" question="Became painful, tender and not able to reduce before death"/>
+</dataset>
+<dataset id="HIV/AIDS">
+<dataset id="1" question="Loss of weight and degree (percentage) of weight loss (this is a key symptom)"/>
+<dataset id="2" question="Any ulcers or sores in the genital area (sexually transmitted infection or venereal disease) "/>
+<dataset id="3" question="Fever for more than 30 days "/>
+<dataset id="4" question="Diarrhoea for more than 30 days"/>
+<dataset id="5" question="Persistent cough for more than 30 days"/>
+<dataset id="6" question="Generalised generalized swelling of nodes in arm pits, neck, groin"/>
+<dataset id="7" question="Generalised itching and skin rash  "/>
+<dataset id="8" question="Did she/he have white sores in mouth (white patches)?"/>
+<dataset id="9" question="Did she/he have any skin disease? "/>
+<dataset id="10" question="Had multiple sexual partners"/>
+<dataset id="11" question="Had been injecting drugs"/>
+<dataset id="12" question="Any test done to confirm HIV/AIDS. If so, write name of the facility and when was it done"/>
+<dataset id="13" question="Had any one in the family (spouse or parent) has HIV/AIDS"/>
+<dataset id="14" question="Had TB (For symptoms - refer above under Respiratory tuberculosis)"/>
+</dataset>
+<dataset id="Tetanus">
+<dataset id="1" question="Locked jaw (unable to open mouth), history of stiffness of neck/back of the body and fits"/>
+<dataset id="2" question="History of open wound, animal bite/sting, burns, fracture, fireworks "/>
+<dataset id="3" question="Injury, bad wound in limb"/>
+</dataset>
+<dataset id="Leprosy">
+<dataset id="1" question="History of unhealed ulcers"/>
+<dataset id="2" question="Disfigurement"/>
+</dataset>
+<dataset id="Mental Disorders ">
+<dataset id="1" question="History of sudden changes in behaviour, sudden spells of excessive crying, isolation, withdrawn nature"/>
+<dataset id="2" question="History of aggressive, unusual or violent behaviour"/>
+<dataset id="3" question="History of excessive talking, incoherent or self talking"/>
+<dataset id="4" question="Reporting hearing of voices "/>
+<dataset id="5" question="Passing into sudden bouts of unconsciousness"/>
+<dataset id="6" question="Loss of memory and difficulty in recalling names of objects or persons"/>
+</dataset>
+<dataset id="Diabetes: Also known as sugar disease. May have the history of:">
+<dataset id="1" question="Increased appetite, thirst, increased frequency of urination"/>
+<dataset id="2" question="Weight loss / weight gain"/>
+<dataset id="3" question="Unhealed ulcer, amputation "/>
+<dataset id="4" question="Gangrene (blackening of the skin due to serious and permanent arterial  obstruction) "/>
+<dataset id="5" question="Diabetic coma (unconsciousness)"/>
+</dataset>
+<dataset id="Cancer">
+<dataset id="1" question="Loss of weight"/>
+<dataset id="2" question="Lumps or ulcers rapidly increasing in size over the period"/>
+<dataset id="3" question="Difficulty in swallowing or breathlessness for more than a month"/>
+<dataset id="4" question="Prolonged cough"/>
+<dataset id="5" question="Loss of appetite"/>
+<dataset id="6" question="Bleeding from various body openings (eg. Bleeding PV)"/>
+<dataset id="7" question="History of taking treatment for cancer."/>
+<dataset id="8" question="Write the site of the cancer, type of treatment received and details on spread of cancer, if possible, as stated by the respondent."/>
+</dataset>
+</dataset>
+</Datasets>

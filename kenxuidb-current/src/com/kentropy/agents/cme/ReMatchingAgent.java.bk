@@ -1,0 +1,189 @@
+package com.kentropy.agents.cme;
+
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
+import java.util.Vector;
+
+import net.xoetrope.xui.data.XBaseModel;
+import net.xoetrope.xui.data.XModel;
+
+import com.kentropy.db.TestXUIDB;
+import com.kentropy.db.XTaskModel;
+import com.kentropy.process.Agent;
+import com.kentropy.process.CMEStateMachine;
+import com.kentropy.process.Process;
+import com.kentropy.transfer.Client;
+
+/**
+ * Accomplishes Business Logic for matching the icd code entered by the physicians in reconciliation stage. Methods in this class
+ * are used to accomplish abstracted Business Logic for matching the icd code entered by the physicians in reconciliation stage for the CME System.
+ * 
+ * @author Rajeev.K
+ * @author Sagar.P
+ * @author Navaneetha.K
+ * 
+ */
+
+public class ReMatchingAgent implements Agent {
+
+	public void batchExecute() {
+		// TODO Auto-generated method stub
+
+	}
+	/**
+	 * A reference to the State Machine
+	 */
+CMEStateMachine sm=null;
+/**
+ * A reference to the process.
+ */
+Process p=null;
+
+
+public void checkConfirmed()
+{
+	
+}
+public void checkAccepted()
+{
+	
+}
+/**
+ * Sends the image to the assigned physicians
+ * @throws Exception
+ */
+public void sendImage() throws Exception {
+	String imagepath = new TestXUIDB().getImagePath();// "C:/apache-tomcat-5.5.31/webapps/cme2-upload/WEB-INF/data/split/";
+	String firstpage = "" + p.pid + "_0_blank.png";
+	String secondpage = "" + p.pid + "_1_blank.png";
+	String codcrop = "" + p.pid + "_cod.png";
+	// TestXUIDB.getInstance().r
+	Client cl = new Client();
+
+	cl.run(imagepath + firstpage, firstpage, sm.adjudicator );
+	cl.run(imagepath + secondpage, secondpage, sm.adjudicator);
+	cl.run(imagepath + codcrop, codcrop, sm.adjudicator);
+}
+
+	public void stateChange(Process p) {
+		// TODO Auto-generated method stub
+this.p=p;
+		if(p.states.getCurrentState().equals("rematching"))
+		{
+			System.out.println(" Doing matching for Process "+p.pid);
+			//Process.transition(p.pid);
+			 sm=(CMEStateMachine)p.states;
+				System.out.println(" Doing matching for Process "+p.pid);
+				SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+				Calendar cal = new GregorianCalendar();
+				cal.add(Calendar.DAY_OF_MONTH, 10);
+				String dueDate = sdf.format(cal.getTime());
+				String assignDate = sdf.format(new Date());	
+
+				try {
+					XModel xm=new XBaseModel();
+					String path="/cme/"+p.pid+"/Reconciliation";
+					TestXUIDB.getInstance().getKeyValues(xm, "keyvalue", path);
+					String first=(String)xm.get(sm.assignedfirst+"/icd/@value");
+					String second=(String)xm.get(sm.assignedsecond+"/icd/@value");
+					if(first.equals(second) || TestXUIDB.getInstance().checkEquivalence(first, second))
+					{
+						sm.reMatchingResult=true;
+						Process.transition(p.pid);
+					return;
+					}
+					else
+					{
+						TestXUIDB.getInstance().saveKeyValue("keyvalue", "/cme/"+p.pid+"/stage", "Adjudication");
+					}
+						
+				String bookmark=TestXUIDB.getInstance().getLastChangeLog();
+				synchronized (this)
+				{
+				Vector adjs=this.findPhysicians(p.pid);
+				if(adjs.size()==0)
+					return;
+				String adj=adjs.get(0).toString();
+				XTaskModel rootM= XTaskModel.getRoot(adj, "cme", "6");
+				XTaskModel cmeM=(XTaskModel)rootM.get("task0");
+				cmeM.area="1";cmeM.household="1";cmeM.house="1";
+				cmeM.assignedTo=adj;
+				cmeM.set("@assignedto",adj);
+				XTaskModel codM1=	(XTaskModel)cmeM.get("task2-"+p.pid);
+				codM1.assignedTo=adj;
+				codM1.set("@assignedto",adj);
+				codM1.set("@dateassigned",assignDate);
+				codM1.set("@duedate",dueDate);
+				cmeM.save();//Tree();
+				codM1.save();//Tree();
+				sm.adjudicator=adj;
+		
+				
+			Vector keys= new Vector();
+			keys.add("key1");
+
+		
+			TestXUIDB.getInstance().createChangeLog("keyvalue", "key1 like '/cme/"+p.pid+"/%'",keys)	;
+			TestXUIDB.getInstance().createChangeLog("keyvalue",
+					"key1 like '/va/" + p.pid + "%'", keys);
+			TestXUIDB.getInstance().sendServerLogs("admin",adj,bookmark,"999999");
+			sendImage();
+			Process.transition(p.pid);
+				}
+
+
+		}
+				catch(Exception e)
+				{
+					e.printStackTrace();
+				}
+		}
+	}
+
+	/**
+	 * This method finds the adjudicator for the give record based on language and workload
+	 * @param vaId
+	 * @return
+	 */
+	public Vector findPhysicians(String vaId) {
+		XModel workloadModel = new XBaseModel();
+		
+		String language = TestXUIDB.getInstance().getValue("keyvalue",
+				"/va/" + vaId + "/gi/language");
+
+		TestXUIDB.getInstance().getPhysiciansWithLessWorkload(language,"a.adjudicator=1",workloadModel);
+
+		
+		Vector ind = new Vector();
+			System.out.println("Going to call assign");
+		if (workloadModel.getNumChildren() >= 1) {
+
+			for (int i = 0; i < workloadModel.getNumChildren(); i++) {
+				String phy = ((XModel)workloadModel.get(i).get("id")).get().toString();
+				System.out.println("physician::"+phy+" "+sm.assignedfirst+" "+sm.assignedsecond+(!phy.equals(sm.assignedfirst) && !phy.equals(sm.assignedsecond)));
+				
+				if(!phy.equals(sm.assignedfirst) && !phy.equals(sm.assignedsecond))
+				{
+				ind.add(phy);
+				break;
+				}
+
+			}
+		}
+
+		// count++;
+		return ind;
+
+	}
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+
+	}
+
+}

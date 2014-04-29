@@ -1,0 +1,29 @@
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/svn/cghrnew/!svn/ver/299/components/src/com/kentropy/util
+END
+NetworkUtil.java
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svn/cghrnew/!svn/ver/256/components/src/com/kentropy/util/NetworkUtil.java
+END
+proxy.properties
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svn/cghrnew/!svn/ver/256/components/src/com/kentropy/util/proxy.properties
+END
+authentication.properties
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svn/cghrnew/!svn/ver/299/components/src/com/kentropy/util/authentication.properties
+END
+UserAuthentication.java
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svn/cghrnew/!svn/ver/299/components/src/com/kentropy/util/UserAuthentication.java
+END

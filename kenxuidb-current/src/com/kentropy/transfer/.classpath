@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="lib/XuiCore_debug_v2_0_7_jdk1_1_8.jar"/>
+	<classpathentry kind="lib" path="lib/XuiOptional_v2_0_7_jdk1_4.jar"/>
+	<classpathentry kind="lib" path="/cghrsurvey/mysql-connector-java-3.0.11-stable-bin.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/logging"/>
+	<classpathentry kind="lib" path="lib/base64coder.jar"/>
+	<classpathentry kind="lib" path="lib/sqlitejdbc-v056.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

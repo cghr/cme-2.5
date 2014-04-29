@@ -1,0 +1,220 @@
+package com.kentropy.agents.cme;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
+import java.util.Vector;
+
+import net.xoetrope.xui.data.XBaseModel;
+import net.xoetrope.xui.data.XModel;
+
+import com.kentropy.db.TestXUIDB;
+import com.kentropy.db.XTaskModel;
+import com.kentropy.process.Agent;
+import com.kentropy.process.CMEStateMachine;
+import com.kentropy.process.Process;
+import com.kentropy.transfer.Client;
+
+/**
+ * Accomplishes Business Logic for assigning records to the physician based on their workload. Methods in this class
+ * are used to accomplish abstracted Business Logic for assigning records to the physician for the CME System.
+ * 
+ * @author Rajeev.K
+ * @author Sagar.P
+ * @author Navaneetha.K
+ * 
+ */
+
+
+public class AssignmentAgent implements Agent {
+	/**
+	 * A reference to the State Machine
+	 */
+	CMEStateMachine sm = null;
+	/**
+	 * A reference to the process
+	 */
+	Process p = null;
+
+
+public String ext="png";
+
+	/**
+	 * This method is used to send the image to the assigned physicians.
+	 * @throws Exception
+	 */
+
+	public void sendImage() throws Exception {
+		String imagepath = new TestXUIDB().getImagePath();//getProperty("imagePath");// "C:/apache-tomcat-5.5.31/webapps/cme2-upload/WEB-INF/data/split/";
+		String firstpage = "" + p.pid + "_0_blank."+ext;
+		String secondpage = "" + p.pid + "_1_blank."+ext;
+		String codcrop = "" + p.pid + "_cod."+ext;
+		// TestXUIDB.getInstance().r
+		Client cl = new Client();
+
+		cl.run(imagepath + firstpage, firstpage, sm.assignedfirst + ","
+				+ sm.assignedsecond);
+		cl.run(imagepath + secondpage, secondpage, sm.assignedfirst + ","
+				+ sm.assignedsecond);
+		cl.run(imagepath + codcrop, codcrop, sm.assignedfirst + ","
+				+ sm.assignedsecond);
+	}
+
+	/**
+	 * Performs updation of workload to the physician
+	 * @param physician
+	 * 			name of the physician.
+	 */
+	
+	public void updateWorkload(String physician) {
+		String sql = "update physician_workload set workload=workload+1 where physician='"
+				+ physician + "'";
+		try {
+			// TestXUIDB.getInstance().execute("physician_workload", "", sql);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * This method is used to change the state of the process.
+	 * @param p
+	 * 		instance of the process.		
+	 */
+	public void stateChange(Process p) {
+		// TODO Auto-generated method stub
+		this.p = p;
+		if (p.states.getCurrentState().equals("assignment")) {
+			sm = (CMEStateMachine) p.states;
+			System.out.println(" Doing assignment for Process " + p.pid);
+			
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+			
+			Vector v = findPhysicians(p.pid + "");//TestXUIDB.getInstance().findPhysicians(p.pid + "");
+			if (v.size() < 2) {
+				return;
+			}
+
+			try {
+				Calendar cal = new GregorianCalendar();
+				cal.add(Calendar.DAY_OF_MONTH, 10);
+				String dueDate = sdf.format(cal.getTime());
+				String assignDate = sdf.format(new Date());
+				String bookmark = TestXUIDB.getInstance().getLastChangeLog();
+				synchronized(this)
+				{
+				XTaskModel rootM = XTaskModel.getRoot(v.get(0).toString(),
+						"cme", "6");
+				XTaskModel cmeM = (XTaskModel) rootM.get("task0");
+				cmeM.area = "1";
+				cmeM.household = "1";
+				cmeM.house = "1";
+				cmeM.assignedTo = v.get(0).toString();
+				cmeM.set("@assignedto", v.get(0).toString());
+				XTaskModel codM1 = (XTaskModel) cmeM.get("task0-" + p.pid);
+				codM1.assignedTo = v.get(0).toString();
+				codM1.set("@assignedto", v.get(0).toString());
+				codM1.set("@dateassigned", assignDate);
+				codM1.set("@duedate", dueDate);
+				cmeM.save();// Tree();
+				codM1.save();// Tree();
+				sm.assignedfirst = v.get(0).toString();
+				updateWorkload(sm.assignedfirst);
+				Vector keys = new Vector();
+				keys.add("key1");
+				keys.add("value1");
+
+				TestXUIDB.getInstance().sendServerLogs("admin",
+						v.get(0).toString(), bookmark, "999999");
+				bookmark = TestXUIDB.getInstance().getLastChangeLog();
+				rootM = XTaskModel.getRoot(v.get(1).toString(), "cme", "6");
+				cmeM = (XTaskModel) rootM.get("task0");
+				cmeM.set("@assignedto", v.get(1).toString());
+				cmeM.area = "1";
+				cmeM.household = "1";
+				cmeM.house = "1";
+				cmeM.assignedTo = v.get(1).toString();
+				cmeM.save();
+				codM1 = (XTaskModel) cmeM.get("task0-" + p.pid);
+				codM1.assignedTo = v.get(1).toString();
+				codM1.set("@assignedto", v.get(1).toString());
+				
+				
+				codM1.set("@dateassigned", assignDate);
+				codM1.set("@duedate", dueDate);
+				// updateworkload
+				codM1.save();// saveTree();
+				sm.assignedsecond = v.get(1).toString();
+				updateWorkload(sm.assignedsecond);
+				TestXUIDB.getInstance().sendServerLogs("admin",
+						v.get(1).toString(), bookmark, "999999");
+				bookmark = TestXUIDB.getInstance().getLastChangeLog();
+				TestXUIDB.getInstance().createChangeLog("keyvalue",
+						"key1 like '/va/" + p.pid + "%'", keys);
+				TestXUIDB.getInstance().sendServerLogs("admin",
+						v.get(0).toString() + "," + v.get(1).toString(),
+						bookmark, "999999");
+				this.sendImage();
+				
+
+				sm.assignedsecond = v.get(1).toString();
+				updateWorkload(sm.assignedsecond);
+				
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+			Process.transition(p.pid);
+		}
+	}
+
+	public void batchExecute() {
+		// Find all process with current state "assignment";
+	}
+
+	int count = 0;
+/**
+ * This method finds the physicians for this record based on language and workload
+ * @param vaId
+ * 			unique number for the record.
+ * @return
+ * 			list of physicians in vector.
+ */
+	public Vector findPhysicians(String vaId) {
+		XModel workloadModel = new XBaseModel();
+		// XModel xm = new XBaseModel();
+		String language = TestXUIDB.getInstance().getValue("keyvalue",
+				"/va/" + vaId + "/gi/language");
+
+		TestXUIDB.getInstance().getPhysiciansWithLessWorkload(language,"a.coder=1",workloadModel);
+
+		
+		Vector ind = new Vector();
+			System.out.println("Going to call assign");
+		if (workloadModel.getNumChildren() >= 2) {
+
+			for (int i = 0; i < 2; i++) {
+				String phy = ((XModel)workloadModel.get(i).get("id")).get().toString();
+				System.out.println("physician::"+phy);
+				ind.add(phy);
+
+			}
+		}
+
+		// count++;
+		return ind;
+
+	}
+
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+		AssignmentAgent a = new AssignmentAgent();
+		a.findPhysicians("09100249_01_04");
+	}
+
+}

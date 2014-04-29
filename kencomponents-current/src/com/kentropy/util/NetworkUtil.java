@@ -1,0 +1,411 @@
+package com.kentropy.util;
+
+import java.awt.Desktop;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.Frame;
+import java.awt.Toolkit;
+import java.awt.Desktop.Action;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.ConnectException;
+import java.net.InetAddress;
+import java.net.MalformedURLException;
+import java.net.NoRouteToHostException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.UnknownHostException;
+import java.util.Properties;
+
+import javax.swing.ButtonGroup;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JRadioButton;
+import javax.swing.JTextField;
+
+import net.xoetrope.awt.XButton;
+import net.xoetrope.awt.XCheckbox;
+import net.xoetrope.awt.XEdit;
+import net.xoetrope.awt.XLabel;
+import net.xoetrope.awt.XPanel;
+import net.xoetrope.awt.XRadioButton;
+
+public class NetworkUtil extends XPanel implements ActionListener, MouseListener {
+	private static int FRAME_WIDTH = 350;
+	private static int FRAME_HEIGHT = 400;
+	private static int MARGIN_LEFT = 20;
+	private static int MARGIN_CENTER = 40;
+	private static int LABEL_WIDTH = 100;
+	private static int LABEL_HEIGHT = 20;
+	private static int FIELD_WIDTH = 160;
+	private static int FIELD_HEIGHT = 20;
+	private static int FIELD_LEFT = 120;
+	private static int FIELD_MARGIN_TOP = 20;
+	private static int BUTTON_WIDTH = 100;
+	private static int BUTTON_HEIGHT = 25;
+
+//	private static Frame frame = new Frame("Connecting");
+	// private static JLabel enableProxyLabel = new JLabel("Enable Proxy");
+	//private static JCheckBox enableProxyCheckBox = new JCheckBox(
+		//	"\tEnable Proxy");
+	private XLabel infoLabel = new XLabel();
+	private  XLabel headingLabel = new XLabel();
+	private  XLabel proxyHostLabel = new XLabel();
+	private  XEdit proxyHostField = new XEdit();
+	private  XLabel proxyPortLabel = new XLabel();
+	private  XEdit proxyPortField = new XEdit();
+	public  XButton reconnectButton = new XButton();
+	public  XButton cancelButton = new XButton();
+	private  XRadioButton noProxyRadioButton = new XRadioButton();
+	private  XRadioButton proxyRadioButton = new XRadioButton();
+
+	private static Properties props = new Properties();
+//	private static File proxyPropertiesFile = new File("proxy.properties");
+
+	static {
+		FileInputStream fin = null;
+		
+		try {
+			fin = new FileInputStream("resources/proxy.properties");
+			props.load(fin);
+			
+			setProxy1(props.getProperty("proxySet"), props.getProperty("proxyHost"), props.getProperty("proxyPort"));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public static void setProxy1(String proxyEnabled, String proxyHost,
+			String proxyPort) {
+		
+		System.getProperties().put("proxySet", proxyEnabled);
+		if((proxyHost!=null && proxyPort != null) && proxyEnabled.equals("true")) {
+			System.getProperties().put("proxyHost", proxyHost);
+			System.getProperties().put("proxyPort", proxyPort);
+		}
+	}
+
+	public static void setProxy(String proxyEnabled, String proxyHost,
+			String proxyPort) throws IOException {
+		if (proxyEnabled.equals("true")) {
+			if (proxyHost.trim().equals("") || proxyPort.trim().equals("")) {
+				System.out
+						.println("Both Proxy host and Proxy port must be specified.");
+			} else {
+				System.out.println("Setting Proxy Host:port\t" + proxyHost
+						+ ":" + proxyPort);
+				// Properties props= new Properties();
+				props.put("proxySet", "true");
+				props.put("proxyHost", proxyHost);
+				props.put("proxyPort", proxyPort);
+				// File f= new File("");
+				FileOutputStream fout = null;
+				fout = new FileOutputStream("resources/proxy.properties");
+				props.save(fout, "Proxy Settings for CME Application");
+				fout.close();
+				setProxy1(proxyEnabled, proxyHost, proxyPort);
+			}
+		} else {
+			System.out.println("Removing proxy settings");
+			// Properties props= new Properties();
+			props.put("proxySet", "false");
+			// File f= new File("");
+			FileOutputStream fout;
+			fout = new FileOutputStream("resources/proxy.properties");
+			props.save(fout, "Proxy Settings for CME Application");
+			fout.close();
+//			props.save(new FileOutputStream("proxy.properties"), "test");
+			setProxy1(proxyEnabled, proxyHost, proxyPort);
+			// System.getProperties().put("proxyPort", null);
+		}
+	}
+
+	public static boolean ping(String addressName) throws UnknownHostException,
+			IOException {
+		// InetAddress add = InetAddress.getByName(addressName);
+		InetAddress add = InetAddress.getByName(addressName);
+		boolean isReachable = add.isReachable(5000);
+		System.out.println("Reachable:" + isReachable);
+		return isReachable;
+	}
+
+	public URLConnection getConnection(String urlString)
+			throws MalformedURLException, IOException, InterruptedException {
+		URL url = new URL(urlString);
+		return getConnection(url);
+	}
+	
+	public URLConnection getConnection(URL url)
+			throws MalformedURLException, InterruptedException {
+		URLConnection connection = null;
+		boolean connected = false;
+		int count = 0;
+//		do {
+			count++;
+			System.out.println("Retry: " + count);
+			try {
+				connection = url.openConnection();
+				connection.connect();
+				connected = true;
+				System.out.println("After");
+			} catch (NoRouteToHostException e) {
+				e.printStackTrace();
+				init();
+
+			} catch (ConnectException e) {
+				System.out.println("Inside ConnectException catch block");
+				e.printStackTrace();
+				init();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			System.out.println("End of While");
+//		} while (!connected);
+
+		return connection;
+}
+	
+	private void selectProxy(boolean b) {
+		proxyRadioButton.setState(b);
+		noProxyRadioButton.setState(!b);
+		proxyHostField.setEditable(b);
+		proxyPortField.setEditable(b);
+	}
+	
+	public void actionPerformed(ActionEvent arg0) {
+		if(arg0.getActionCommand().equals("Retry")) {
+			try {
+				String proxyEnabled = "";
+	//			proxyEnabled = proxyRadioButton.isSelected() ? "true"
+	//					: "false";
+	//			noProxyRadioButton.setSelected(true);
+	//			proxyRadioButton.setSelected(true);
+				if(proxyRadioButton.getState()) {
+					proxyEnabled = "true";
+					selectProxy(true);
+				} else {
+					proxyEnabled = "false";
+					selectProxy(false);
+				}
+				
+				setProxy(proxyEnabled, proxyHostField.getText(),
+						proxyPortField.getText());
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+	//		this.setVisible(false);
+		} else if(arg0.getActionCommand().equals("Cancel")) {
+			this.setVisible(false);
+		}
+	}
+
+	public void init() throws InterruptedException {
+//		frame = new Frame();
+		
+		infoLabel.setText("Could not contact the server. Please ensure that you have an active internet connection.\n      If you are directly connected to the internet, click Retry.\n      If you are behind a proxy, please provide the proxy \n      information below.");
+		headingLabel.setText("HTTP Proxy Settings");
+		proxyHostLabel.setText("Proxy Host");
+		proxyPortLabel.setText("Proxy Port");
+		cancelButton.setText("Cancel");
+		reconnectButton.setText("Retry");
+		noProxyRadioButton.setText("I am directly connected to the internet");
+		proxyRadioButton.setText("I am connected through a proxy");
+		
+//		proxyHostField.setEditable(false);
+//		proxyPortField.setEditable(false);
+//		noProxyRadioButton.setState(true);
+//		proxyRadioButton.setState(false);
+		selectProxy(false);
+		
+		
+//		frame.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
+//		frame.addWindowListener(new WindowAdapter() {
+
+		Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
+//		frame.setLocation((int) (d.getWidth() - FRAME_WIDTH) / 2,
+//				(int) (d.getHeight() - FRAME_HEIGHT) / 2);
+//		frame.setSize(FRAME_WIDTH, FRAME_HEIGHT);
+//		frame.setLayout(null);
+
+		headingLabel.setFont(new Font("Arial", Font.BOLD, 15));
+		infoLabel.setFont(new Font("Arial", Font.BOLD, 11));
+
+		infoLabel.setBounds(MARGIN_LEFT,2,FRAME_WIDTH,LABEL_HEIGHT*4);
+		headingLabel.setBounds(90, infoLabel.getY()+infoLabel.getHeight(), FRAME_WIDTH/2, 20);
+//		enableProxyCheckBox.setBounds(80, 40, LABEL_WIDTH, LABEL_HEIGHT);
+		noProxyRadioButton.setBounds(MARGIN_LEFT, headingLabel.getY()+headingLabel.getHeight()+FIELD_MARGIN_TOP, FRAME_WIDTH-MARGIN_LEFT*2, LABEL_HEIGHT);
+		proxyRadioButton.setBounds(MARGIN_LEFT, noProxyRadioButton.getY()+FIELD_MARGIN_TOP, FRAME_WIDTH-MARGIN_LEFT*2, LABEL_HEIGHT);
+		proxyHostLabel.setBounds(MARGIN_LEFT, proxyRadioButton.getY()+proxyRadioButton.getHeight()
+				+ FIELD_MARGIN_TOP, LABEL_WIDTH, LABEL_HEIGHT);
+		proxyHostField.setBounds(FIELD_LEFT, proxyHostLabel.getY(),
+				FIELD_WIDTH, FIELD_HEIGHT);
+		proxyPortLabel.setBounds(MARGIN_LEFT, proxyHostLabel.getY()+proxyHostLabel.getHeight()
+				+ FIELD_MARGIN_TOP, LABEL_WIDTH, LABEL_HEIGHT);
+		proxyPortField.setBounds(FIELD_LEFT, proxyPortLabel.getY(),
+				FIELD_WIDTH, FIELD_HEIGHT);
+		reconnectButton.setBounds(40,
+				(int) (proxyPortLabel.getY()+proxyPortLabel.getHeight() + FIELD_MARGIN_TOP * 1.5),
+				BUTTON_WIDTH, BUTTON_HEIGHT);
+		cancelButton.setBounds(170,
+				reconnectButton.getY(),
+				BUTTON_WIDTH, BUTTON_HEIGHT);
+
+//		proxyHostField.setText(props.getProperty("proxyHost"));
+//		proxyPortField.setText(props.getProperty("proxyPort"));
+		
+//		X radioGroup = new ButtonGroup();
+//		radioGroup.add(noProxyRadioButton);
+//		radioGroup.add(proxyRadioButton);
+		
+//		selectProxy(props.getProperty("proxySet").equals("true"));
+		reconnectButton.addActionListener(this);
+		cancelButton.addActionListener(this);
+			/*
+			public void actionPerformed(ActionEvent arg0) {
+				try {
+					String proxyEnabled = "";
+//					proxyEnabled = proxyRadioButton.isSelected() ? "true"
+//							: "false";
+//					noProxyRadioButton.setSelected(true);
+//					proxyRadioButton.setSelected(true);
+					if(proxyRadioButton.getState()) {
+						proxyEnabled = "true";
+						selectProxy(true);
+					} else {
+						proxyEnabled = "false";
+						selectProxy(false);
+					}
+					
+					setProxy(proxyEnabled, proxyHostField.getText(),
+							proxyPortField.getText());
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
+//				this.setVisible(false);
+			}
+
+		});
+		*/
+		
+		noProxyRadioButton.addMouseListener(this);
+		/*
+		new MouseAdapter() {
+
+			@Override
+			public void mouseClicked(MouseEvent arg0) {
+				selectProxy(false);
+			}
+			
+		});
+		*/
+		
+		proxyRadioButton.addMouseListener(this);
+		/*
+		new MouseAdapter() {
+
+			@Override
+			public void mouseClicked(MouseEvent arg0) {
+				selectProxy(true);
+			}
+			
+		});
+		*/
+		this.add(infoLabel);
+		this.add(headingLabel);
+//		frame.add(enableProxyCheckBox);
+		this.add(noProxyRadioButton);
+		this.add(proxyRadioButton);
+		this.add(cancelButton);
+		this.add(proxyHostLabel);
+		this.add(proxyHostField);
+		this.add(proxyPortLabel);
+		this.add(proxyPortField);
+		this.add(reconnectButton);
+
+		this.setVisible(true);
+//		this.repaint();
+//		while (frame!=null) {
+////			Thread.currentThread().sleep(2000);
+//			System.out.println("waiting...");
+//		}
+	}
+
+	public static void main(String[] args) throws IOException, URISyntaxException {
+		NetworkUtil util = new NetworkUtil();
+		util.openUrl("www.google.com");
+		
+		System.in.read();
+		
+		try {
+//			setProxy("false", "tt", "tt1");
+//			System.out.println(getConnection("http://www.cghr.org").getContent().toString());
+			Frame frame = new Frame("Connecting");
+			NetworkUtil nu = new NetworkUtil();
+			nu.setBounds(10,10,300,400);
+			frame.setBounds(10,10,300,400);
+			frame.add(nu);
+			nu.getConnection("http://www.cghr.org");
+			
+			frame.setVisible(true);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public void openUrl(String url) throws URISyntaxException, IOException {
+		URI uri = new URI(url);
+		
+		Desktop desk = Desktop.getDesktop();
+		if(desk.isSupported(Action.BROWSE)) {
+			desk.browse(uri);
+		}
+	}
+
+	public void mouseClicked(MouseEvent arg0) {
+		// TODO Auto-generated method stub
+		if(arg0.getSource().equals(proxyRadioButton)) {
+			selectProxy(true);
+		} else if(arg0.getSource().equals(noProxyRadioButton)) {
+			selectProxy(false);
+		} 
+	}
+
+	public void mouseEntered(MouseEvent arg0) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	public void mouseExited(MouseEvent arg0) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	public void mousePressed(MouseEvent arg0) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	public void mouseReleased(MouseEvent arg0) {
+		// TODO Auto-generated method stub
+		
+	}
+}

@@ -1,0 +1,208 @@
+package com.kentropy.util;
+
+import java.awt.Desktop;
+import java.awt.Frame;
+import java.awt.Desktop.Action;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.ConnectException;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.net.UnknownHostException;
+import java.util.Properties;
+
+import javax.swing.JDialog;
+import javax.swing.JOptionPane;
+
+import sun.misc.BASE64Decoder;
+import sun.misc.BASE64Encoder;
+
+public class UserAuthentication {
+	private static String url;
+	private static String dest = "resources/teamdata.xml";
+	private static String[] login;
+
+	private File file = new File(dest);
+
+	static {
+		Properties props = new Properties();
+		try {
+			InputStream is = UserAuthentication.class
+					.getResourceAsStream("authentication.properties");
+
+			props.load(is);
+			url = props.getProperty("URL");
+			login = props.getProperty("login").split(",");
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+	
+	public static String[] getLogin() {
+		return login;
+	}
+	
+	public static void main(String[] args) throws Exception {
+		/*BASE64Decoder dec = new BASE64Decoder();
+		byte[] creds = dec.decodeBuffer("YWJoYV8yNyU0MHlhaG9vLmNvbTpQcUpMNnFKc1NR");
+		System.out.println("creds: "+URLDecoder.decode(new String(creds), "utf-8"));*/
+		
+		UserAuthentication auth = new UserAuthentication();
+		try{
+		auth.authenticate("Physician4", "password1");
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+		for(int i=0;i<100;i++)
+		auth.authenticate("Physician4", "password");
+		
+//		UserAuthentication auth = new UserAuthentication();
+//		try {
+//			auth.authenticate2("abha_27@yahoo.com", "PqJL6qJsSQ");
+//		} catch (ConnectException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} catch (UnsupportedEncodingException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} catch (MalformedURLException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} catch (UnknownHostException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} catch (IOException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} catch (InterruptedException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+		
+		/*
+		 * UserAuthentication auth = new UserAuthentication();
+		 * if(auth.isFirstLogin()) {
+		 * System.out.println("Downloading teamdata.xml"); try {
+		 * auth.authenticate("Varun Malhotra1", "password"); } catch
+		 * (UnsupportedEncodingException e) { // TODO Auto-generated catch block
+		 * userDialog(e.toString()); e.printStackTrace(); } catch
+		 * (MalformedURLException e) { // TODO Auto-generated catch block
+		 * userDialog(e.toString()); e.printStackTrace(); } catch
+		 * (UnknownHostException e) { userDialog("Dialog1: "+e.toString());
+		 * e.printStackTrace(); } catch (FileNotFoundException e) {
+		 * userDialog(e.toString()); e.printStackTrace(); } catch (IOException
+		 * e) { // TODO Auto-generated catch block
+		 * userDialog("Dialog2: "+e.toString()); e.printStackTrace(); } catch
+		 * (InterruptedException e) { // TODO Auto-generated catch block
+		 * e.printStackTrace(); } } System.out.println("Stopping");
+		 */
+
+	}
+
+	public boolean isFirstLogin() {
+		System.out.println("Verifying First Login");
+		System.out.println(file.getAbsolutePath());
+
+		return !file.exists();
+	}
+
+	public void authenticate(String username, String password)
+			throws UnsupportedEncodingException, MalformedURLException,
+			ConnectException, UnknownHostException, IOException,
+			InterruptedException {
+		username = URLEncoder.encode(username, "utf-8");
+		password = URLEncoder.encode(password, "utf-8");
+		String credentials = new BASE64Encoder().encode((username+":"+password).getBytes());
+		// url="http://1.c";
+//		String urlString = url + "Transfer?action=authenticate&username="
+//				+ username + "&password=" + password;
+		String urlString = url + "Transfer?action=authenticate&credentials="+credentials;
+		System.out.println(urlString);
+
+		URL url = new URL(urlString);
+		URLConnection urlConnection = url.openConnection();
+		urlConnection.setRequestProperty("User-Agent","Mozilla/5.0 ( compatible ) ");
+		urlConnection.setRequestProperty("Accept","*/*");
+
+		// NetworkUtil nu = new NetworkUtil();
+		// nu.setBounds(0,0,300,400);
+		// urlConnection = nu.getConnection(urlString);
+		// urlConnection.connect();
+		InputStream is = urlConnection.getInputStream();
+		//file = new File("resources/teamdata.xml");
+		System.out.println("file "+file.getAbsolutePath());
+		FileOutputStream fos = new FileOutputStream(file);
+		byte[] b = new byte[1024];
+		int n = is.read(b);
+		while (n > 0) {
+			fos.write(b, 0, n);
+			n = is.read(b);
+		}
+		is.close();
+		fos.close();
+		System.out.println("Completed downloading");
+	}
+
+	public void authenticate1(String username, String password)
+			throws UnsupportedEncodingException, MalformedURLException,
+			ConnectException, UnknownHostException, IOException,
+			InterruptedException {
+		username = URLEncoder.encode(username, "utf-8");
+		password = URLEncoder.encode(password, "utf-8");
+		// url="http://1.c";
+		String urlString = url + "Transfer?action=authenticate&username="
+				+ username + "&password=" + password;
+		System.out.println("urlString:"+urlString);
+
+		URL url = new URL(urlString);
+		URLConnection urlConnection = url.openConnection();
+		InputStream is = urlConnection.getInputStream();
+	}
+	
+	public void authenticate2(String username, String password)
+			throws UnsupportedEncodingException, MalformedURLException,
+			ConnectException, UnknownHostException, IOException,
+			InterruptedException {
+		try {
+		username = URLEncoder.encode(username, "utf-8");
+		password = URLEncoder.encode(password, "utf-8");
+		byte[] credsArray=(username+":"+password).getBytes();
+		BASE64Encoder enc = new BASE64Encoder();
+		String credsEncode = enc.encode(credsArray);
+		// url="http://1.c";
+		String urlString = url;
+		System.out.println("urlString:" + urlString);
+		
+		Desktop desk = Desktop.getDesktop();
+		if(desk.isSupported(Action.BROWSE)) {
+			desk.browse(new URI(urlString));
+		}
+		} catch (URISyntaxException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	static void userDialog(String message) {
+		// Frame frame = new Frame();
+		// frame.setVisible(true);
+		// JDialog dialog = new JDialog(frame);
+		// dialog.setSize(800, 600);
+		// dialog.setVisible(true);
+		JOptionPane.showMessageDialog(null, message, "alert",
+				JOptionPane.OK_CANCEL_OPTION);
+	}
+}

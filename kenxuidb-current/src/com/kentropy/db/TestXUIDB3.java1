@@ -1,0 +1,4834 @@
+package com.kentropy.db;
+
+
+import java.io.DataInputStream;
+import java.io.FileInputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.Properties;
+import java.util.StringTokenizer;
+import java.util.Vector;
+
+import net.xoetrope.data.XDataSource;
+import net.xoetrope.optional.data.sql.ConnectionObject;
+import net.xoetrope.optional.data.sql.DatabaseTableModel;
+import net.xoetrope.optional.data.sql.NamedConnectionManager;
+import net.xoetrope.xml.XmlElement;
+import net.xoetrope.xml.XmlSource;
+import net.xoetrope.xui.XProjectManager;
+import net.xoetrope.xui.data.XBaseModel;
+import net.xoetrope.xui.data.XModel;
+
+import com.kentropy.model.KenList;
+import com.kentropy.process.Process;
+import com.kentropy.sync.ChangeLog;
+import com.kentropy.transfer.Client;
+
+/**
+ * Accomplishes Business Logic for storing data in the database. Methods in this class
+ * are used to accomplish abstracted Business Logic for storing data in the database of the CME System.
+ * 
+ * @author Rajeev.K
+ * @author Sagar.P
+ * @author Navaneetha.K
+ * 
+ */
+
+public class TestXUIDB3 {
+	static String workload=null;
+	
+		
+	static {
+		Properties props = new Properties();
+		InputStream is = TestXUIDB.class.getResourceAsStream("db.properties");
+		try {
+			props.load(is);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		TestXUIDB.workload = props.getProperty("workload");
+		System.out.println("Workload::"+workload);
+		try {
+			is.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * This method is used to get the configuration properties from the configuration table.
+	 * @param property
+	 * 			properties which is to be retrieved from the table.
+	 * @return
+	 * 		value of the property.
+	 */
+	
+	public String getProperty(String property) {
+		String value = null;
+		DatabaseTableModel dt= new DatabaseTableModel();
+		String sql="select value from configuration where property='"+property+"'";
+		System.out.println("sql::"+sql);
+		
+		dt.setSqlStatement(sql, "test", false);
+		dt.retrieve();
+		int n=dt.getNumChildren();
+		System.out.println("No of Rows:"+n);
+		XModel xm = new XBaseModel();
+		if(n>0) {
+			XModel row=(XModel)xm.get(""+0);
+			for(int i=0;i<dt.getNumAttributes();i++) {
+				value = dt.get(0).getAttribValueAsString(0);
+			}
+		}
+		
+		return value;
+	}
+	
+	/**
+	 * This method is used to store icd code entered by both the physicians, the adjudicator and assign the final icd to the cme_report table.
+	 * @param phys1
+	 * 			id of the first physician.
+	 * @param phys2
+	 * 			id of the second physician.
+	 * @param adjudicator
+	 * 			id of the adjudicator.
+	 * @param report
+	 * 			path to store the data.
+	 * @throws Exception
+	 */
+	
+	public void updateCODReport(String phys1, String phys2, String adjudicator, String report) throws Exception
+	{
+		String finalIcd="";
+		XModel xm=new XBaseModel();
+		String path="/cme/"+report;
+		//	TestXUIDB.getInstance().getKeyValues(xm, "keyvalue", path);
+		String codPath1=path+"/Coding/"+phys1+"/icd";
+		String reconPath1=path+"/Reconciliation/"+phys1+"/icd";
+
+		String codPath2=path+"/Coding/"+phys2+"/icd";
+		String reconPath2=path+"/Reconciliation/"+phys2+"/icd";
+		String adjPath=path+"/Adjudication/"+adjudicator+"/icd";
+		String cod1=TestXUIDB.getInstance().getValue("keyvalue", codPath1);
+		String recon1=TestXUIDB.getInstance().getValue("keyvalue", reconPath1);
+		String cod2=TestXUIDB.getInstance().getValue("keyvalue", codPath2);
+		String recon2=TestXUIDB.getInstance().getValue("keyvalue", reconPath2);
+		String adj=TestXUIDB.getInstance().getValue("keyvalue", adjPath);
+		XModel dataM=new XBaseModel();
+		dataM.setId(report);
+		((XModel)dataM.get("physician1")).set(phys1);
+		((XModel)dataM.get("physician2")).set(phys2);
+		if(adjudicator!=null && !adjudicator.trim().equals("")) {
+			((XModel)dataM.get("adjudicator")).set(adjudicator);
+		}
+		((XModel)dataM.get("coding_icd1")).set(cod1); 
+		((XModel)dataM.get("coding_icd2")).set(cod2);
+		finalIcd=cod2;
+		if(recon1!=null && !recon1.trim().equals("")){
+			((XModel)dataM.get("reconciliation_icd1")).set(recon1);
+		}
+		if(recon2!=null && !recon2.trim().equals("")){
+			((XModel)dataM.get("reconciliation_icd2")).set(recon2);
+			finalIcd=recon2;
+		}
+		if(adj!=null && !adj.trim().equals("")){
+			((XModel)dataM.get("adjudicator_icd")).set(adj);
+			finalIcd=adj;
+		}
+		((XModel)dataM.get("uniqno")).set(report);
+		((XModel)dataM.get("final_icd")).set(finalIcd);
+		dwdb = TestXUIDB.getInstance().getProperty("dwdb");
+		TestXUIDB.getInstance().saveData("`"+dwdb+"`.cme_report", "uniqno='"+report+"'", dataM);
+	}
+	
+	/**
+	 * This method is used to get the description of the specific icd code.
+	 * @param icd
+	 * 			icd code for the description has to be retrieve.
+	 * @return
+	 * 			description of the icd code.
+	 */
+	
+	public String getICDDesc( String  icd) {
+		
+		
+
+		DatabaseTableModel dt= new DatabaseTableModel();
+	dt.setupTable("icd","description","icd='"+icd+"'","test",false);
+	dt.retrieve();
+//	CachedDatabaseTable dt1=dt.getTable();
+	System.out.println(dt.getNumChildren());
+	for(int i=0;i<dt.getNumChildren();i++)
+	{
+		//areaM.append(dt.getValue(i));
+	String desc=dt.get(i).get("description").toString();
+	return desc;
+	}
+
+		
+	
+
+			return null;
+		
+	
+}
+	/**
+	 * This method is used to validate the icd code based on the age of the death person.
+	 * @param age
+	 * 			age of the death person.
+	 * @param icd
+	 * 			icd code to be validate.
+	 * @return
+	 * 			true if it is valid icd code for the age otherwise false.
+	 */
+
+	public boolean isValidIcdAge(String age, String icd) {
+		
+		
+
+			DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("icd_exclusions_age","*","icd='"+icd+"'","test",false);
+		dt.retrieve();
+	//	CachedDatabaseTable dt1=dt.getTable();
+		System.out.println(dt.getNumChildren());
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+			//areaM.append(dt.getValue(i));
+		String ageRange1=dt.get(i).get("age").toString();
+		String[] ageRange = ageRange1.split("-");
+		double min = Double.parseDouble(ageRange[0]);
+		double max = Double.parseDouble(ageRange[1]);
+		double ageInYears =Double.parseDouble(age);
+		if(ageInYears>=min && ageInYears<=max) {
+			return false;
+		}
+	
+			}
+		
+				return true;
+			
+		
+	}
+	
+
+	/**
+	 * This method is used to validate the icd code based on the sex of the death person.
+	 * @param age
+	 * 			sex of the death person.
+	 * @param icd
+	 * 			icd code to be validate.
+	 * @return
+	 * 			true if it is valid icd code for the sex otherwise false.
+	 */
+	
+	public boolean isValidIcdSex(String age, String icd) {
+		
+		
+
+		DatabaseTableModel dt= new DatabaseTableModel();
+	dt.setupTable("icd_exclusions_sex","*","icd='"+icd+"'","test",false);
+	dt.retrieve();
+//	CachedDatabaseTable dt1=dt.getTable();
+	System.out.println(dt.getNumChildren());
+	
+	if(dt.getNumChildren()>0) {
+		return false;
+	}
+
+
+
+return true;
+		
+	
+}
+	
+	/**
+	 * This method is used to check whether both the icd code entered by the physician is equivalent or not.
+	 * @param icd1
+	 * 			icd code of the first physician.
+	 * @param icd2
+	 * 			icd code of the second physician.
+	 * @return
+	 * 		true if it is equivalent otherwise false.
+	 * 
+	 */
+	
+	public boolean checkEquivalence(String icd1, String icd2) {
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("icd_equivalent_codes","*","icdEquivalence LIKE '%"+icd1+"%' AND icdEquivalence LIKE '%"+icd2+"%'","test",false);
+		dt.retrieve();
+	
+		
+		
+	
+			
+			if(dt.getNumChildren()>0) {
+				return true;
+			}
+		
+		
+		
+		return false;
+	}
+	
+	/**
+	 * This method is used to create the instance for the TestXUIDB class.
+	 * @return
+	 * 		instance of the class.
+	 */
+	
+	public static XUIDB getInstance()
+	{
+		return new TestXUIDB();
+	}
+	
+	/**
+	 * This method is used get the image path.
+	 * @return
+	 * 		image path in string.
+	 */
+	
+	public String getImagePath()
+	{
+		return imagePath;
+	}
+	
+	/**
+	 * This method is used to retrieve the icd and description from the keyvalue table and store it in a xmodel.
+	 * @param path
+	 * 			path where the data is stored.
+	 * @param dataM
+	 * 			stored the retrieved data.
+	 * @param noOfColumns
+	 * 			specify number of columns.
+	 */
+	
+	public  void getReportData(String path,XModel dataM,int noOfColumns)
+	{
+		XModel dtm= new XBaseModel();
+	readTree(dtm, "keyvalue", path);
+	int count=0;
+		for(int i =0; i<dtm.getNumChildren();i+=noOfColumns)
+		{
+			XBaseModel xm= new XBaseModel();
+			xm.setTagName("tr");
+			for(int j=0; j<noOfColumns;j++)
+			{
+				
+			xm.setId(""+(i+j));
+			XBaseModel desc= new XBaseModel();
+			desc.setId("label"+j);
+			desc.set(""+dtm.get((i+j)).getId());
+			XBaseModel icd= new XBaseModel();
+			icd.setId("value"+j);
+			System.out.println(dtm.get((i+j)).get());
+			icd.set(""+dtm.get((i+j)).get());
+			xm.append(desc);
+			xm.append(icd);
+			count++;
+			if(count>=dtm.getNumChildren())
+				break;
+			}
+			
+			
+			
+			dataM.append(xm);
+			
+		
+		}
+		
+	}
+	
+	/**
+	 * This method is used to get the differential diagnosis for the particular icd and stored it in the xmodel.
+	 * @param icdCode
+	 * 			icd code to which the differential diagnosis has to be retrieved.
+	 * @param dataM
+	 * 			stores the retrieved data in the xmodel.
+	 */
+	
+	public  void getDiffDiagnosis(String icdCode,XModel dataM)
+	{
+		//String sql="SELECT b.Description Description,DiffDiagnosis FROM icd_family a left join icd_diff b ON a.name=b.family WHERE ICD='"+icdCode+"' and b.Description is not null";
+		String sql="SELECT  description,diffdiagnosis FROM icd_diff where icd='"+icdCode+"'";
+		System.out.println(sql);
+		try{
+		//System.in.read();
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+		DatabaseTableModel dtm= new DatabaseTableModel();
+		
+		dtm.setSqlStatement(sql, "test", false);
+		dtm.retrieve();
+//		if(dtm.getNumChildren()>0){
+		for(int i =0; i<dtm.getNumChildren();i++)
+		{
+			XBaseModel xm= new XBaseModel();
+			xm.setTagName("tr");
+			xm.setId(""+i);
+			XBaseModel desc= new XBaseModel();
+			desc.setId("description");
+//			desc.set(""+dtm.get(i).get("description").toString());
+//			XBaseModel icd= new XBaseModel();
+//			icd.setId("diffdiagnosis");
+			System.out.println(dtm.get(i).get("diffdiagnosis").toString());
+//			icd.set(""+dtm.get(i).get("diffdiagnosis").toString());
+			
+			desc.set(""+dtm.get(i).get("diffdiagnosis").toString() + ":  "+dtm.get(i).get("description").toString());
+			
+			xm.append(desc);
+//			xm.append(icd);
+			dataM.append(xm);
+//			dataM.append(desc);
+			
+			
+		
+		}
+		
+		
+	}
+	
+	/**
+	 * This method is used the search the icd code and description based on the synonyms and icd code.
+	 * @param searchKey
+	 * 			synonyms to be searched.
+	 * @param icdKey
+	 * 			icd code to be searched.
+	 * @param dataM
+	 * 			stores the retrieved data in the xmodel.
+	 */
+	
+	public  void getSearch(String searchKey,String icdKey, XModel dataM)
+	{
+		String sql="SELECT DISTINCT a.ICD,DESCRIPTION FROM icd_synonyms1 a LEFT JOIN icd_family b ON a.icd=b.icd WHERE synonyms like '%"+searchKey+"%' OR a.icd LIKE '"+icdKey+"%'";// OR synonyms LIKE '"+searchKey+" %'";
+		DatabaseTableModel dtm= new DatabaseTableModel();
+		dtm.setSqlStatement(sql, "test", false);
+		dtm.retrieve();
+		for(int i =0; i<dtm.getNumChildren();i++)
+		{
+			XBaseModel xm= new XBaseModel();
+			xm.setTagName("tr"); 
+			xm.setId(""+i);
+			XBaseModel icd= new XBaseModel();
+			icd.setId("icd");
+			System.out.println(dtm.get(i).get("ICD").toString());
+			icd.set(""+dtm.get(i).get("ICD").toString());
+			XBaseModel desc= new XBaseModel();
+			desc.setId("description");
+			desc.set(""+dtm.get(i).get("DESCRIPTION").toString());
+			
+			
+			xm.append(icd);
+			xm.append(desc);
+			dataM.append(xm);
+			
+		
+		}
+		
+	}
+	
+	/**
+	 * This method is used the search the icd code and description based on the synonyms.
+	 * @param searchKey
+	 * 			synonyms to be searched.
+	 * @param dataM
+	 * 			stores the retrieved data in the xmodel.
+	 */
+	
+	public  void getSearchIcd(String searchKey, XModel dataM)
+	{
+//		String sql1="SELECT ICD, DESCRIPTION FROM icd where icd like '" + searchKey + "%'";// OR synonyms LIKE '"+searchKey+" %'";		if(searchKey.length()>=3) {
+//		String sql2 = "SELECT icd as ICD,synonyms AS DESCRIPTION FROM icd_synonyms1 WHERE synonyms LIKE '%"+searchKey+"%' UNION SELECT * FROM icd WHERE description LIKE '%"+searchKey+"%'";
+//		String sql = "";
+//		if(searchKey.length()>2) {
+//			sql = sql2;
+//		} else {
+//			sql = sql1;
+//		}
+		String sql = "SELECT  distinct a.icd,a.description FROM icd a LEFT JOIN icd_synonyms1 b ON a.icd=b.icd WHERE IF('"+searchKey+"' REGEXP '^[A-Z||a-z][0-9]{0,2}$' , a.icd LIKE CONCAT('"+searchKey+"','%'),IF(LENGTH('"+searchKey+"') >2 and '"+searchKey+"'!='and' , description LIKE CONCAT('%','"+searchKey+"','%') OR synonyms LIKE CONCAT('%','"+searchKey+"','%'),FALSE))";
+		DatabaseTableModel dtm= new DatabaseTableModel();
+		dtm.setSqlStatement(sql, "test", false);
+		dtm.retrieve();
+		for(int i =0; i<dtm.getNumChildren();i++)
+		{
+			XBaseModel xm= new XBaseModel();
+			xm.setTagName("tr"); 
+			xm.setId(""+i);
+			XBaseModel icd= new XBaseModel();
+			icd.setId("icd");
+			System.out.println(dtm.get(i).get("icd").toString());
+			icd.set(""+dtm.get(i).get("icd").toString());
+			XBaseModel desc= new XBaseModel();
+			desc.setId("description");
+			desc.set(""+dtm.get(i).get("description").toString());
+			
+			
+			xm.append(icd);
+			xm.append(desc);
+			dataM.append(xm);
+			
+		
+		}
+		
+	}
+	
+	/**
+	 * This method is used the search the icd code and description based on the synonyms.
+	 * @param searchKey
+	 * 			synonyms to be searched.
+	 * @param dataM
+	 * 			stores the retrieved data in the xmodel.
+	 */
+	
+	public  void getSearch(String searchKey, XModel dataM)
+	{
+		String sql="SELECT DISTINCT a.ICD,DESCRIPTION FROM icd_synonyms1 a LEFT JOIN icd_family b ON a.icd=b.icd WHERE synonyms like '%"+searchKey+"%'";
+		DatabaseTableModel dtm= new DatabaseTableModel();
+		dtm.setSqlStatement(sql, "test", false);
+		dtm.retrieve();
+		for(int i =0; i<dtm.getNumChildren();i++)
+		{
+			XBaseModel xm= new XBaseModel();
+			xm.setTagName("tr"); 
+			xm.setId(""+i);
+			XBaseModel icd= new XBaseModel();
+			icd.setId("icd");
+			System.out.println(dtm.get(i).get("ICD").toString());
+			icd.set(""+dtm.get(i).get("ICD").toString());
+			XBaseModel desc= new XBaseModel();
+			desc.setId("description");
+			desc.set(""+dtm.get(i).get("DESCRIPTION").toString());
+			
+			
+			xm.append(icd);
+			xm.append(desc);
+			dataM.append(xm);
+			
+		
+		}
+		
+	}
+	
+	/**
+	 * This mehtod is used find the physician based on the language and workload of the physician.
+	 * @param vaId
+	 * 			uniqno number of the record.
+	 * @return
+	 * 			vector which contanins list of physicians.
+	 */
+	
+	public  Vector findPhysicians(String vaId){
+		
+	String language=	getValue("keyvalue","/va/"+vaId+"/gi/Language");
+	System.out.println("language "+language);
+	//String sql="SELECT DISTINCT a.physician physician FROM report_language c LEFT JOIN physician_language a ON c.language=a.language LEFT JOIN physician_workload b ON a.physician= b.physician WHERE c.report="+vaId+" AND b.workload < 11";  
+	String sql="SELECT DISTINCT a.physician physician from  physician_language a  LEFT JOIN physician_workload b ON a.physician= b.physician WHERE b.workload < 11 ";//and a.language='"+language+"'";
+	DatabaseTableModel dtm= new DatabaseTableModel();
+	dtm.setSqlStatement(sql, "test", false);
+	dtm.retrieve();
+		Vector ind=new Vector();
+		for(int i =0; i<dtm.getNumChildren();i++)
+		{
+			String phy=dtm.get(i).get("physician").toString();
+			System.out.println(phy);
+			ind.add(dtm.get(i).get("physician").toString());
+			
+		}
+		
+		
+		//count++;
+	return ind;
+		
+		
+	}
+	
+	/**
+	 * This method is used to store the status details in the process table.
+	 * @param p
+	 * 			instance of the process class
+	 */
+	
+	public  void saveProcess(com.kentropy.process.Process p)
+	{
+		try{
+		String where=" pid ='"+p.pid+"'";
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("process","*",where,"test",false);
+	//	dt.setDistinct(true);
+		dt.retrieve();
+		String s= new String("");
+		SimpleDateFormat sdf= new SimpleDateFormat("yyyy-MM-dd");
+		String st="'"+sdf.format(p.startTime)+"'";
+		String et=p.endTime==null?null:("'"+sdf.format(p.endTime)+"'");
+		System.out.println(dt.getNumChildren());
+		
+		if(dt.getNumChildren()>0)
+		{
+			s="update process set status='"+p.status+"',startTime="+st+",endTime="+et+", stateMachine='"+p.states+"' where"+where;
+		}
+		else
+			s="insert into process (pid,status,startTime,endTime,stateMachine) Values('"+p.pid+"','"+p.status+"',"+st+","+st+""+",'"+p.states+"')";
+		System.out.println(">>>>"+s);
+		PreparedStatement ps=	dt.getTable().getPreparedStatement(s);
+		ps.execute();
+		//dt.getTable().releasePreparedStatement(ps);
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+		
+	}
+	
+	/**
+	 * This method is used to execute the query.
+	 * @param table
+	 * 			name of the table.
+	 * @param where
+	 * 			where condition for the sql.
+	 * @param sql
+	 * 			query to execute.
+	 * @throws Exception
+	 */
+	
+	public  void execute(String table,String where,String sql)  throws Exception
+	{
+		
+		DatabaseTableModel dt= new DatabaseTableModel();
+	//	dt.setup
+		dt.setupTable(table);//,"*",where,"test",false);
+		
+		PreparedStatement ps=	dt.getTable().getPreparedStatement(sql);
+	/*	for(int i=0;i<sql.size();i++)
+		{
+		ps.addBatch(sql.get(i).toString());
+		ps.execute();
+		}*/
+		ps.execute();
+		ps.close();
+	}
+	
+	/**
+	 * This method is used to store the status and process id into the transition table.
+	 * @param id
+	 * 			unique id
+	 * @param pid
+	 * 			unique number of the record
+	 * @param status
+	 * 			status of the  record.
+	 */
+	
+	public  void saveTransition( String id,String pid,int status)
+	{
+		try{
+		String where=" id ='"+id+"'";
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("transitions","*",where,"test",false);
+	//	dt.setDistinct(true);
+		dt.retrieve();
+		String s= new String("");
+		SimpleDateFormat sdf= new SimpleDateFormat("yyyy-MM-dd");
+	
+		System.out.println(dt.getNumChildren());
+		
+		if(dt.getNumChildren()>0)
+		{
+			s="update transitions set pid='"+pid+"',status="+status+ " where"+where;
+		}
+		else
+			s="insert into transitions (pid,status) Values('"+pid+"','"+status+"')"; //,"+st+","+st+""+",'"+p.states+"')";
+		System.out.println(">>>>"+s);
+		PreparedStatement ps=	dt.getTable().getPreparedStatement(s);
+		ps.execute();
+		//dt.getTable().releasePreparedStatement(ps);
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+		
+	}
+	
+	/**
+	 * This method is used to get  the next transition based on the status.
+	 * @return
+	 * 		next transition 
+	 * @throws Exception
+	 */
+	public  String[] getNextTransition() throws Exception
+	{
+		
+		String where=" status =0";//+pid+"'";
+		DatabaseTableModel dt= new DatabaseTableModel();
+		//dt.get(arg0)
+		dt.setupTable("transitions","*",where,"test",false);
+		dt.retrieve();
+		com.kentropy.process.Process p=null;
+		SimpleDateFormat sdf= new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+		System.out.println(" NO of transitions"+dt.getNumChildren());
+		if(dt.getNumChildren()>0)
+			
+		{String [] ret= new String[2];
+			ret[0]=dt.get(0).get("id").toString();
+			ret[1]=dt.get(0).get("pid").toString();
+			return ret;
+			
+			
+			
+		}
+		return null;
+		
+	}
+	
+	/**
+	 * This method is used to get the process based on the processid.
+	 * @param pid
+	 * 			unique number of the record.
+	 * @return
+	 * 			instance of the process class.
+	 * @throws Exception
+	 */
+	
+	public  Process getProcess(String pid) throws Exception
+	{
+		
+		String where=" pid ='"+pid+"'";
+		DatabaseTableModel dt= new DatabaseTableModel();
+		//dt.get(arg0)
+		dt.setupTable("process","*",where,"test",false);
+		dt.retrieve();
+		com.kentropy.process.Process p=null;
+		SimpleDateFormat sdf= new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+		if(dt.getNumChildren()>0)
+			
+		{
+			p=new Process();
+			p.pid=pid;
+			p.status=dt.get(0).get("status").toString();
+			Object startTime=dt.get(0).get("startTime");
+			Object endTime=dt.get(0).get("startTime");
+			System.out.println(dt.get(0).get("startTime"));
+			System.out.println(dt.get(0).get("endTime"));
+			if(startTime!=null)
+			p.startTime=sdf.parse(""+startTime);
+			if(endTime!=null)
+				p.endTime=sdf.parse(""+endTime);
+			
+			System.out.println(p.status);
+			System.out.println(p.startTime);
+			p.states=Process.createStateMachine();
+			p.states.deserialize((dt.get(0).get("stateMachine")+""));
+			System.out.println(p.states.getCurrentState());
+			System.out.println(p.states);
+			
+		}
+		return p;
+		
+	}
+	
+	/**
+	 * This method is used to get task.
+	 * 
+	 */
+	
+public  XModel	getTasks(String surveyType,String team, String taskPath,KenList dataPath)
+{
+	KenList kl= new KenList("area/house/household/member");
+	
+	KenList kl1=null;
+	if(kl.size()>dataPath.size())
+	{
+	kl1=kl.subset(0, dataPath.size()-1);
+	}
+	else
+	{
+		kl1=kl;
+	}
+	
+	String context=kl1.add1("=").add1(dataPath).toString(" and ");
+	String where ="task like '%definition/"+taskPath+"' and assignedto='"+team+"' "+(context.length()>0? "and "+context:"")+" and survey_type='"+surveyType+"' and (duedate is null or duedate >= Now())";
+	System.out.println(" Where "+where);
+	XModel dataM=new XBaseModel();
+	getTaskData(where,dataM );
+	return dataM;
+}
+
+/**
+* This method is used to get task.
+* 
+*/
+
+
+public  XModel	getTasks1(String surveyType,String team, String taskPath,KenList dataPath)
+{
+	KenList kl= new KenList("area/house/household/member");
+	
+	KenList kl1=null;
+	if(kl.size()>dataPath.size())
+	{
+	kl1=kl.subset(0, dataPath.size()-1);
+	}
+	else
+	{
+		kl1=kl;
+	}
+	
+	String context=kl1.add1("=").add1(dataPath).toString(" and ","'");
+	String defPath="taskdefinitions/"+((taskPath!=null &&! taskPath.equals(""))?""+surveyType+"_taskdefinition/"+taskPath:""+surveyType+"_taskdefinition/%");
+		
+	String where ="task like '"+defPath+"/%' and task not like '"+defPath+"/%/%' and assignedto='"+team+"' "+(context.length()>0? "and "+context:"")+" and (status !='1' or status is null) ";
+	System.out.println(" Where "+where);
+	XModel dataM=new XBaseModel();
+	getTaskData(where,dataM );
+	return dataM;
+}
+
+/**
+* This method is used to get task.
+* 
+*/
+
+	public  void getTasks(XModel ioM, String team,String participant) throws Exception
+	{
+ 
+		String parent="taskdefinitions/healthcheckup_taskdefinition";
+
+			testP(parent,team,ioM);
+
+		
+		
+	}
+
+	
+	/**
+	 * This method is used to establish connection to the database.
+	 * @throws Exception
+	 */
+	
+	public  void checkDBServer() throws Exception
+	{NamedConnectionManager nc=(NamedConnectionManager)NamedConnectionManager.getInstance();
+	ConnectionObject co=nc.getConnection("test");
+	
+		
+	}
+	
+	/**
+	 * This method is used to get the task path based on the task and survey type.
+	 * 
+	 */
+	
+	public  String getTaskStatusPath(String task, String surveyType, String area, String house, String household, String individual )
+	{
+		//String currentTask = (String)currentTaskStr.get();		
+		java.util.StringTokenizer tkzr = new java.util.StringTokenizer(task, "/");
+		int tokenIndex=0;
+		String outputPath="";
+		String tkn="";
+		while(tkzr.hasMoreTokens())
+		{
+			tkn=tkzr.nextToken();			
+			switch(tokenIndex)
+			{
+			case 0:
+				outputPath+="survey";
+				break;			
+			case 1:
+				outputPath+=surveyType+"/tasks";
+				break;			
+			case 3:
+				outputPath+=tkn+"-"+area;
+				break;
+			case 4:
+				outputPath+=tkn+"-"+house;
+				break;
+			case 5:
+				outputPath+=tkn+"-"+household;
+				break;
+			case 6:
+				if(individual==null || individual.equals("")) // for task1(interview), individual exist. For task0, FormA survey, individual may not exist  
+					outputPath+=tkn;
+				else
+					outputPath+=tkn+"-"+individual;					
+				break;
+			default: // includes '1' for surveytasks
+				outputPath+=tkn;		
+			}			
+			outputPath+="/";
+			tokenIndex++;
+		}
+		outputPath= outputPath.substring(0, outputPath.length()-1);
+		System.out.println("Output path for task '="+task+"'="+outputPath);
+		return outputPath;
+	}
+	
+	/**
+	 * This method is used to get the child task based on the parent path and team.
+	 * @param parentPath
+	 * 			path of the parent.
+	 * @param team
+	 * 			name of the team.
+	 * @return
+	 */
+	
+	public  int getTaskChildren(String parentPath ,String team)
+	{
+		String taskStr=parentPath;//"taskdefinitions/"+getSurveyType()+"_taskdefinition/task0";
+		//String context=((!area.equals(""))?"and area="+area :"")+((!house.equals(""))?" and house="+house:"")+ ((!household.equals(""))?" and household="+household:"")+((!individual.equals(""))?" and member="+individual:"");
+		System.out.println(taskStr);	
+		try
+		{
+					
+			String where="assignedto="+team+" and  survey_type='2'  and task LIKE '"+taskStr+"/%' and  task NOT LIKE '"+taskStr+"/%/%' ";
+			System.out.println(where);
+			DatabaseTableModel dt= new DatabaseTableModel();
+			dt.setupTable("tasks","count(*) count1",where,"test",false);
+		//	dt.setDistinct(true);
+			dt.retrieve();
+			XModel row=dt.get(0);
+			return Integer.parseInt(row.get("count1").toString());
+			
+		}
+		catch(Exception e )
+		{
+			
+			e.printStackTrace();
+		}
+		
+		return 0;
+	}
+	
+	
+	/**
+	 * This method is used to get the logistics.
+	 * 
+	 */
+	public  XLogisticsModel getLogisticsM(String table ,String name,String path)
+	{
+		//String taskStr=path;//"taskdefinitions/"+getSurveyType()+"_taskdefinition/task0";
+		String context="and path='"+path+"'";
+	//	String context=((area != null && !area.equals("") &&!area.equals("-1"))?"and area="+area :"")+((house !=null && !house.equals(""))?" and house="+house:"")+ ((household !=null && !household.equals(""))?" and household="+household:"")+((individual !=null && !individual.equals(""))?" and member="+individual:"");
+	//	System.out.println(taskStr);	
+		try
+		{
+					
+			String where="name='"+name+"' "+context;//and  task NOT LIKE '"+taskStr+"/%/%' "+context;
+			System.out.println(where);
+			DatabaseTableModel dt= new DatabaseTableModel();
+			dt.setupTable(table,"*",where,"test",false);
+		//	dt.setDistinct(true);
+			dt.retrieve();
+		
+	//		System.out.println(sql2);				
+			 
+		//	ResultSet rs1 = stmt2.executeQuery(sql2);
+			
+			//XDatModel dM =new XDataModel();
+			XLogisticsModel dataM=new XLogisticsModel();
+			if(dt.getNumChildren()==0)
+			{
+				dataM.setId(name);
+				dataM.set("@path",path);
+			/*	dataM.set("@area",area);
+				dataM.set("@house",house);
+				dataM.set("@household",household);
+				dataM.set("@member",individual);*/
+				return dataM;
+				
+				
+			}
+			
+		//	for(int i=0; i<dt.getNumChildren();i++)
+			{
+				XModel row=dt.get(0);
+				
+			
+				for(int j=0;j<dt.getNumAttributes();j++)
+				{
+					
+					if(dt.getAttribName(j).equals("id"))
+					{
+						continue;
+					}
+				dataM.set("@"+dt.getAttribName(j),row.get(j).get());
+				}
+				System.out.println(" >>> "+dataM.get("@name"));
+			
+			
+			//taskM.setId(taskPath);
+			//ioM.get(taskPath)
+			//	testP(taskM.get("@task").toString(),team,taskM);
+//ioM.append(taskM);
+				 
+			}
+			dataM.setId(name);
+			return dataM;
+			
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	/**
+	 * This method is used to get the data model for the table.
+	 * @param table
+	 * 			name of the table.
+	 * @param where
+	 * 			where condition for the query.
+	 * @return
+	 * 		data model
+	 */
+	
+	public  XDataModel getDataM1(String table ,String where)
+	{
+		//String taskStr=path;//"taskdefinitions/"+getSurveyType()+"_taskdefinition/task0";
+	//	String context=((area != null && !area.equals("") &&!area.equals("-1"))?"and area="+area :"")+((house !=null && !house.equals(""))?" and house="+house:"")+ ((household !=null && !household.equals(""))?" and household="+household:"")+((individual !=null && !individual.equals(""))?" and member="+individual:"");
+	//	System.out.println(taskStr);	
+		try
+		{
+					
+		//	String where="name='"+name+"' "+context;//and  task NOT LIKE '"+taskStr+"/%/%' "+context;
+			System.out.println(where);
+			DatabaseTableModel dt= new DatabaseTableModel();
+			dt.setupTable(table,"*",where,"test",false);
+		//	dt.setDistinct(true);
+			dt.retrieve();
+		
+	//		System.out.println(sql2);				
+			 
+		//	ResultSet rs1 = stmt2.executeQuery(sql2);
+			
+			//XDatModel dM =new XDataModel();
+			XDataModel dataM=new XDataModel();
+			
+			
+		//	for(int i=0; i<dt.getNumChildren();i++)
+		if(dt.getNumChildren()>0)
+			{
+				XModel row=dt.get(0);
+				
+			
+				for(int j=0;j<dt.getNumAttributes();j++)
+				{
+					
+				dataM.set("@"+dt.getAttribName(j),row.get(j).get());
+				}
+				System.out.println(" >>> "+dataM.get("@name"));
+			
+			
+			//taskM.setId(taskPath);
+			//ioM.get(taskPath)
+			//	testP(taskM.get("@task").toString(),team,taskM);
+//ioM.append(taskM);
+				 
+			}
+			
+			return dataM;
+			
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	/**
+	 * This method is used to get the data model for the table.
+	 * @param table
+	 * 			name of the table.
+	 * @param where
+	 * 			where condition for the query.
+	 * @return
+	 * 		data model
+	 */
+	
+	public  XDataModel getDataM2(String table ,String where)
+	{
+		//String taskStr=path;//"taskdefinitions/"+getSurveyType()+"_taskdefinition/task0";
+	//	String context=((area != null && !area.equals("") &&!area.equals("-1"))?"and area="+area :"")+((house !=null && !house.equals(""))?" and house="+house:"")+ ((household !=null && !household.equals(""))?" and household="+household:"")+((individual !=null && !individual.equals(""))?" and member="+individual:"");
+	//	System.out.println(taskStr);	
+		try
+		{
+					
+		//	String where="name='"+name+"' "+context;//and  task NOT LIKE '"+taskStr+"/%/%' "+context;
+			System.out.println(where);
+			DatabaseTableModel dt= new DatabaseTableModel();
+			dt.setupTable(table,"*",where,"test",false);
+		//	dt.setDistinct(true);
+			dt.retrieve();
+		
+	//		System.out.println(sql2);				
+			 
+		//	ResultSet rs1 = stmt2.executeQuery(sql2);
+			
+			//XDatModel dM =new XDataModel();
+			XDataModel dataM=new XDataModel();
+			
+			
+		for(int i=0; i<dt.getNumChildren();i++)
+		
+			{
+				XModel row=dt.get(i);
+				XModel xm= new XBaseModel();
+				xm.setId(i+"");
+			
+				for(int j=0;j<dt.getNumAttributes();j++)
+				{
+					
+					
+				((XModel)xm.get(dt.getAttribName(j))).set(row.get(j).get());
+				
+				}
+				dataM.append(xm);
+				//System.out.println(" >>> "+dataM.get("@name"));
+			
+			
+			//taskM.setId(taskPath);
+			//ioM.get(taskPath)
+			//	testP(taskM.get("@task").toString(),team,taskM);
+//ioM.append(taskM);
+				 
+			}
+			
+			return dataM;
+			
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	/**
+	 * This method is used to get the data model for the table.
+	 * 
+	 */
+	
+	public  XDataModel getDataM(String table ,String name,String area,String house,String household,String individual)
+	{
+		//String taskStr=path;//"taskdefinitions/"+getSurveyType()+"_taskdefinition/task0";
+		String context=((area != null && !area.equals("") &&!area.equals("-1"))?"and area="+area :"")+((house !=null && !house.equals(""))?" and house="+house:"")+ ((household !=null && !household.equals(""))?" and household="+household:"")+((individual !=null && !individual.equals(""))?" and member="+individual:"");
+	//	System.out.println(taskStr);	
+		try
+		{
+					
+			String where="name='"+name+"' "+context;//and  task NOT LIKE '"+taskStr+"/%/%' "+context;
+			System.out.println(where);
+			DatabaseTableModel dt= new DatabaseTableModel();
+			dt.setupTable(table,"*",where,"test",false);
+		//	dt.setDistinct(true);
+			dt.retrieve();
+		
+	//		System.out.println(sql2);				
+			 
+		//	ResultSet rs1 = stmt2.executeQuery(sql2);
+			
+			//XDatModel dM =new XDataModel();
+			XDataModel dataM=new XDataModel();
+			if(dt.getNumChildren()==0)
+			{
+				dataM.setId(name);
+				dataM.set("@name",name);
+				dataM.set("@area",area);
+				dataM.set("@house",house);
+				dataM.set("@household",household);
+				dataM.set("@member",individual);
+				return dataM;
+				
+				
+			}
+			
+		//	for(int i=0; i<dt.getNumChildren();i++)
+			{
+				XModel row=dt.get(0);
+				
+			
+				for(int j=0;j<dt.getNumAttributes();j++)
+				{
+					
+					if(dt.getAttribName(j).equals("id"))
+					{
+						continue;
+					}
+				dataM.set("@"+dt.getAttribName(j),row.get(j).get());
+				}
+				System.out.println(" >>> "+dataM.get("@name"));
+			
+			
+			//taskM.setId(taskPath);
+			//ioM.get(taskPath)
+			//	testP(taskM.get("@task").toString(),team,taskM);
+//ioM.append(taskM);
+				 
+			}
+			dataM.setId(name);
+			return dataM;
+			
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	/**
+	 * This method is used to create a message in xml file and store the message in change logs table.
+	 * @throws Exception
+	 */
+	
+	public  void createMessage() throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		
+		dt.setupTable("changelogs","value","","test",true);
+		dt.retrieve();
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		FileWriter fw = new FileWriter("c:\\message.xml");
+		fw.write("<message>\n");
+		for(int i=0; i<dt.getNumChildren();i++)
+		{
+			XModel row=dt.get(i);
+			
+			String log=(String)row.get(0).get();
+			fw.write(log);
+			
+		
+			
+		}
+		fw.write("</message>\n");
+		fw.close();
+		
+
+		}
+	
+	/**
+	 * This method is used to get the last changelog.
+	 * @return
+	 * 		last change log in string.
+	 * @throws Exception
+	 */
+	public  String getLastChangeLog() throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		
+		dt.setupTable("changelogs","max(id) bookmark","","test",false);
+		dt.retrieve();
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		//FileWriter fw = new FileWriter("c:\\message.xml");
+		//fw.write("<message>\n");
+		for(int i=0; i<dt.getNumChildren();i++)
+		{
+			XModel row=dt.get(i);
+			
+			String time=(String)row.get(0).get();
+			return time;
+			//fw.write(log);
+				
+		}
+		return null;
+		
+	}
+	
+	/**
+	 * This method is used to get total number of pending tasks.
+	 * @return
+	 * 		number of pending tasks.
+	 * @throws Exception
+	 */
+	public  String getPendingChanges() throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		//System.out.println("bookmark "+frombookmark);
+		dt.setupTable("changelogs","SUM(IF(VALUE LIKE \"%table='keyvalue'%\",1,0)) datachanges,SUM(IF(VALUE LIKE \"%table='tasks'%\",1,0)) taskchanges","status is null","test",false);
+		dt.retrieve();
+		String taskchanges=dt.get(0).get("taskchanges").toString();
+		taskchanges=taskchanges==null||taskchanges.equals("null")?"0":taskchanges;
+		String datachanges=dt.get(0).get("datachanges").toString();
+		datachanges=datachanges==null||datachanges.equals("null")?"0":datachanges;
+		String msg=taskchanges+" Task and "+datachanges+" Data changes";
+		return msg;
+	}
+	
+	/**
+	 * This method is used to send the server log.
+	 * @param participant
+	 * 			name of the participant.
+	 * @param recepients
+	 * 			name of the recepients.
+	 * @param frombookmark
+	 * 			starting book mark
+	 * @param tobookmark
+	 * 			end book mark
+	 * @throws Exception
+	 */
+	
+	public  void sendServerLogs(String participant,String recepients,String frombookmark,String tobookmark) throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		System.out.println("bookmark "+frombookmark);
+		dt.setupTable("changelogs","value"," status is null and id >'"+frombookmark+"' and id <'"+tobookmark+"'","test",false);
+		dt.retrieve();
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		//FileWriter fw = new FileWriter("c:\\message.xml");
+		//fw.write("<message>\n");
+		Vector logs=new Vector();
+		Client cl=new com.kentropy.transfer.Client();
+		cl.participant=participant;
+		cl.operation=null;
+		
+		for(int i=0; i<dt.getNumChildren();i++)
+		{
+			XModel row=dt.get(i);
+			
+			String log=(String)row.get(0).get();
+			logs.add(log);
+			//fw.write(log);
+				
+		}
+		cl.run(logs,recepients);
+		PreparedStatement ps= dt.getTable().getPreparedStatement("update changelogs set status='1'");
+		ps.execute();
+		ps.close();
+		//fw.write("</message>\n");
+		//fw.close();
+		
+
+		}	
+	
+	/**
+	 * This method is used to send the server log.
+	 * @param participant
+	 * 			name of the participant.
+	 * @param recepients
+	 * 			name of the recepients.
+	 * @param frombookmark
+	 * 			starting book mark
+	 * @param tobookmark
+	 * 			end book mark
+	 * @throws Exception
+	 */
+	
+	public  void sendServerLogs2(String participant,String recepients,String frombookmark,String tobookmark) throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		System.out.println("bookmark "+frombookmark);
+		dt.setupTable("changelogs","value"," status is null and id >'"+frombookmark+"' and id <'"+tobookmark+"'","test",true);
+		dt.retrieve();
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		//FileWriter fw = new FileWriter("c:\\message.xml");
+		//fw.write("<message>\n");
+		//Vector logs=new Vector();
+		Client cl=new com.kentropy.transfer.Client();
+		cl.participant=participant;
+		cl.operation=null;
+		SimpleDateFormat sdf= new SimpleDateFormat("yyyy-MM-dd-hh-mm-ss-SSS");
+		StringBuffer logs=new StringBuffer();
+		
+		logs.append("<logs>");
+		
+		for(int i=0; i<dt.getNumChildren();i++)
+		{
+			XModel row=dt.get(i);
+			
+			String log=(String)row.get(0).get();
+			logs.append(log+"\r\n");
+			//fw.write(log);
+				
+		}
+		logs.append("</logs>");
+		String fname=	"./"+participant+"-"+sdf.format(new Date())+"-received.xml";
+		
+	
+	
+	FileWriter fw= new FileWriter(fname);//"./"+headers1.get("participant")+"-"+sdf.format(new Date())+"-received.xml");
+	//System.out.println("Line count "+count);//line+" "+state);
+	//fw.write("m>);
+fw.write(logs.toString());
+	//System.out.println(log.toString());
+	fw.close();
+		//cl.run(logs,recepients);
+	StringTokenizer st= new StringTokenizer(recepients,",");
+	//boolean server=false;
+	if(st.countTokens()>1)
+	{
+	while(st.hasMoreTokens())
+	{
+	deliverMessage(fname,st.nextToken());//headers1.get("participant")+"-"+sdf.format(new Date())+"-received.xml", st.nextToken());
+	}
+	}
+	else
+		deliverMessage(fname,recepients);//headers1.get("participant")+"-"+sdf.format(new Date())+"-received.xml", recepients);
+	System.out.println("dELIVERED");
+		PreparedStatement ps= dt.getTable().getPreparedStatement("update changelogs set status='1'");
+		ps.execute();
+		ps.close();
+		//fw.write("</message>\n");
+		//fw.close();
+	
+		//fw.write("</message>\n");
+		//fw.close();
+		
+
+		}	
+	
+	/**
+	 * This method is used to send the server log.
+	 * @param participant
+	 * 			name of the participant.
+	 * @param recepients
+	 * 			name of the recepients.
+	 * 
+	 * @throws Exception
+	 */
+	
+	public  void sendServerLogs1(String participant,String recepients) throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		//System.out.println("bookmark "+frombookmark);
+		dt.setupTable("changelogs","value"," status is null or status !=1 " ,"test",false);
+		dt.retrieve();
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		//FileWriter fw = new FileWriter("c:\\message.xml");
+		//fw.write("<message>\n");
+		Vector logs=new Vector();
+		Client cl=new com.kentropy.transfer.Client();
+		cl.participant=participant;
+		cl.operation=null;
+		
+		for(int i=0; i<dt.getNumChildren();i++)
+		{
+			XModel row=dt.get(i);
+			
+			String log=(String)row.get(0).get();
+			logs.add(log);
+			//fw.write(log);
+				
+		}
+		cl.run(logs,recepients);
+		PreparedStatement ps= dt.getTable().getPreparedStatement("update changelogs set status='1'");
+		ps.execute();
+		ps.close();
+		//fw.write("</message>\n");
+		//fw.close();
+		
+
+		}	
+	
+	/**
+	 * This method is used to send the change log.
+	 * @param participant
+	 * 			name of the participant.
+	 * @param recepients
+	 * 			name of the recepients.
+	 * @throws Exception
+	 */
+	
+	public  int sendLogs(String participant,String recepients) throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		
+		dt.setupTable("changelogs","value"," status is null ","test",true);
+		dt.retrieve();
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		//FileWriter fw = new FileWriter("c:\\message.xml");
+		//fw.write("<message>\n");
+		Vector logs=new Vector();
+		Client cl=new com.kentropy.transfer.Client();
+		cl.participant=participant;
+		int count=dt.getNumChildren();
+		
+		for(int i=0; i<dt.getNumChildren();i++)
+		{
+			XModel row=dt.get(i);
+			
+			String log=(String)row.get(0).get();
+			logs.add(log);
+			//fw.write(log);
+				
+		}
+		cl.run(logs,recepients);
+		PreparedStatement ps= dt.getTable().getPreparedStatement("update changelogs set status='1'");
+		ps.execute();
+		ps.close();
+		//fw.write("</message>\n");
+		//fw.close();
+		return count;
+
+		}
+	
+	/**
+	 * This method is used to send the change log locally.
+	 * @param path
+	 * 			path of the file name
+	 * @param participant
+	 * 			name of the participant.
+	 * @param recepients
+	 * 			name of the recepients.
+	 * 
+
+	 * @throws Exception
+	 */
+	
+	public  void sendLogsLocal(String path ,String participant,String recepients) throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		SimpleDateFormat sdf= new SimpleDateFormat("yyyy-MM-dd-hh-mm-ss-SSS");
+		dt.setupTable("changelogs","value"," status is null ","test",true);
+		dt.retrieve();
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		//FileWriter fw = new FileWriter("c:\\message.xml");
+		//fw.write("<message>\n");
+		StringBuffer logs=new StringBuffer();
+		Client cl=new com.kentropy.transfer.Client();
+		cl.participant=participant;
+		logs.append("<logs>");
+		
+		for(int i=0; i<dt.getNumChildren();i++)
+		{
+			XModel row=dt.get(i);
+			
+			String log=(String)row.get(0).get();
+			logs.append(log+"\r\n");
+			//fw.write(log);
+				
+		}
+		logs.append("</logs>");
+		String fname=	path+"/"+participant+"-"+sdf.format(new Date())+"-received.xml";
+		
+	
+	
+	FileWriter fw= new FileWriter(fname);//"./"+headers1.get("participant")+"-"+sdf.format(new Date())+"-received.xml");
+	//System.out.println("Line count "+count);//line+" "+state);
+	//fw.write("m>);
+fw.write(logs.toString());
+	//System.out.println(log.toString());
+	fw.close();
+		//cl.run(logs,recepients);
+		PreparedStatement ps= dt.getTable().getPreparedStatement("update changelogs set status='1'");
+		ps.execute();
+		ps.close();
+		//fw.write("</message>\n");
+		//fw.close();
+		
+
+		}
+	
+	/**
+	*	This method is used to get the task.
+	*/
+	public  void getTask(String path ,String team,XTaskModel ioM,String surveyType,String area,String house,String household,String individual)
+	{
+		String taskStr=path;//"taskdefinitions/"+getSurveyType()+"_taskdefinition/task0";
+		String context=((area != null && !area.equals("") &&!area.equals("-1"))?"and area="+area :"")+((house !=null && !house.equals(""))?" and house="+house:"")+ ((household !=null && !household.equals(""))?" and household="+household:"")+((individual !=null && !individual.equals(""))?" and member="+individual:"");
+		System.out.println(taskStr);	
+		try
+		{
+					
+			String where="assignedto="+team+" and  survey_type='"+surveyType+"'  and task ='"+taskStr+"/%' ";//and  task NOT LIKE '"+taskStr+"/%/%' "+context;
+			System.out.println(where);
+			DatabaseTableModel dt= new DatabaseTableModel();
+			dt.setupTable("tasks","*",where,"test",false);
+		//	dt.setDistinct(true);
+			dt.retrieve();
+		
+	//		System.out.println(sql2);				
+			 
+		//	ResultSet rs1 = stmt2.executeQuery(sql2);
+			
+			for(int i=0; i<dt.getNumChildren();i++)
+			{
+				XModel row=dt.get(i);
+				XTaskModel taskM =new XTaskModel();
+				ioM.append(taskM);
+				taskM.surveyType=surveyType;
+				taskM.task=row.get("task").toString();
+				taskM.area=row.get("area").toString();
+				taskM.house=row.get("house").toString();
+				taskM.household=row.get("household").toString();
+				taskM.member=row.get("member").toString();
+				taskM.assignedTo=row.get("assignedto").toString();
+				String status=row.get("status").toString();
+				
+				String taskPath=getTaskStatusPath(taskM.task,"healthcheckup",taskM.area,taskM.house,taskM.household,taskM.member);
+				StringTokenizer st = new StringTokenizer(taskPath,"/");
+				String taskId="";
+				while(st.hasMoreTokens())
+				{
+				taskId=st.nextToken();
+				}
+				//System.out.println(" TAsk Path "+taskPath);
+				
+				System.out.println(" TAsk Path "+taskPath);
+				//XModel taskM= (XModel)ioM.get(taskId);
+				taskM.setId(taskId);
+				
+				taskM.set(status);
+				for(int j=0;j<dt.getNumAttributes();j++)
+				{
+					if(dt.getAttribName(j).equals("task") ||dt.getAttribName(j).equals("survey_type")||dt.getAttribName(j).equals("id"))
+					{
+						continue;
+					}
+				taskM.set("@"+dt.getAttribName(j),row.get(j).get());
+				}
+				System.out.println(" >>> "+taskM.get("@task"));
+			
+			//taskM.setId(taskPath);
+			//ioM.get(taskPath)
+			//	testP(taskM.get("@task").toString(),team,taskM);
+//ioM.append(taskM);
+				 
+			}
+			
+			
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	*	This method is used to get total number of child count.
+	*/
+	
+	public  int getTaskChildCount(String parentPath ,String team,XTaskModel ioM,String area,String house,String household,String individual)
+	{
+		String taskStr=parentPath;//"taskdefinitions/"+getSurveyType()+"_taskdefinition/task0";
+		String context=((area != null && !area.equals("") &&!area.equals("-1"))?"and area="+area :"")+((house !=null && !house.equals(""))?" and house="+house:"")+ ((household !=null && !household.equals(""))?" and household="+household:"")+((individual !=null && !individual.equals(""))?" and member="+individual:"");
+		System.out.println(taskStr);	
+		try
+		{
+					
+			String where="assignedto="+team+" and  survey_type='2'  and task LIKE '"+taskStr+"/%' and  task NOT LIKE '"+taskStr+"/%/%' "+context;
+			System.out.println(where);
+			DatabaseTableModel dt= new DatabaseTableModel();
+			dt.setupTable("tasks","count(*) count1",where,"test",false);
+		//	dt.setDistinct(true);
+			dt.retrieve();
+		
+	//		System.out.println(sql2);				
+			 
+		//	ResultSet rs1 = stmt2.executeQuery(sql2);
+			
+			return Integer.parseInt(dt.get(0).get("count1").toString());
+			
+			
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+		return 0;
+	}
+	
+	/**
+	*	This method is used to get the logistics data.
+	*/
+	
+	public  void getLogisticsData(String parentPath ,XLogisticsModel ioM)
+	{
+		String taskStr=parentPath;//"taskdefinitions/"+getSurveyType()+"_taskdefinition/task0";
+		String context="path='"+parentPath+"'";//((area != null && !area.equals("") &&!area.equals("-1"))?"and area="+area :"")+((house !=null && !house.equals(""))?" and house="+house:"")+ ((household !=null && !household.equals(""))?" and household="+household:"")+((individual !=null && !individual.equals(""))?" and member="+individual:"");
+		System.out.println(taskStr);	
+		try
+		{
+					
+			String where=context;//""assignedto="+team+" and  survey_type='"+surveyType+"'  and task LIKE '"+taskStr+"/%' and  task NOT LIKE '"+taskStr+"/%/%' "+context;
+			System.out.println(where);
+			DatabaseTableModel dt= new DatabaseTableModel();
+			dt.setupTable("logistics","*",where,"test",false);
+		//	dt.setDistinct(true);
+			dt.retrieve();
+		
+	//		System.out.println(sql2);				
+			 
+		//	ResultSet rs1 = stmt2.executeQuery(sql2);
+			
+			for(int i=0; i<dt.getNumChildren();i++)
+			{
+				XModel row=dt.get(i);
+				XLogisticsModel lM =new XLogisticsModel();
+				ioM.append(lM);
+		//		
+			//	String status=row.get("status").toString();
+				
+				//String taskPath=getTaskStatusPath(taskM.task,"healthcheckup",taskM.area,taskM.house,taskM.household,taskM.member);
+			
+				//System.out.println(" TAsk Path "+taskPath);
+				
+				//System.out.println(" TAsk Path "+taskPath);
+				//XModel taskM= (XModel)ioM.get(taskId);
+				
+				//taskM.setAddByDefault(true);
+				for(int j=0;j<dt.getNumAttributes();j++)
+				{
+					System.out.println("Attributes called "+dt.getAttribName(j));
+					if(dt.getAttribName(j).equals("name") )
+					{
+						lM.setId((String)row.get(j).get());
+						System.out.println(row.get(j).get());
+					}
+					else{
+						lM.set("@"+dt.getAttribName(j),row.get(j).get());
+					}
+				
+				}
+				
+				//System.out.println(" >>> "+taskM.get("@task"));
+			//	taskM.setAddByDefault(false);
+			
+			//taskM.setId(taskPath);
+			//ioM.get(taskPath)
+			//	testP(taskM.get("@task").toString(),team,taskM);
+//ioM.append(taskM);
+				 
+			}
+			
+			
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * This method is used to get the task details.
+	 * @param where
+	 * 			condition for the query.
+	 * @param dataM
+	 * 			store the retrieve data.
+	 */
+	
+public  void getTaskData(String where,XModel dataM)
+	{
+		/* Gets all the tasks which match the where clause. Assumes a parent Model to which all the tasks would be appended*/
+		try{
+
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("tasks","*",where,"test",false);
+		for(int i=0; i<dt.getNumChildren();i++)
+		{
+			XModel row=dt.get(i);
+			XTaskModel taskM =new XTaskModel();
+			dataM.append(taskM);
+			String status="";
+			
+			for(int j=0;j<dt.getNumAttributes();j++)
+			{
+				String attrib=dt.getAttribName(j);
+				String attrib1=attrib.toLowerCase();
+			
+				if(attrib1.equals("survey_type"))
+				taskM.surveyType=row.get(attrib).toString();
+				if(attrib1.equals("task"))	
+			taskM.task=row.get(attrib).toString();
+				if(attrib1.equals("area"))
+			taskM.area=row.get(attrib).toString();
+				if(attrib1.equals("house"))
+			taskM.house=row.get(attrib).toString();
+				if(attrib1.equals("household"))
+			taskM.household=row.get(attrib).toString();
+				if(attrib1.equals("member"))
+			taskM.member=row.get(attrib).toString();
+				if(attrib1.equals("assignedto"))
+			taskM.assignedTo=row.get(attrib).toString();
+				if(attrib1.equals("survey_type"))
+			status=row.get(attrib).toString();
+			}
+			
+			String taskPath=getTaskStatusPath(taskM.task,"healthcheckup",taskM.area,taskM.house,taskM.household,taskM.member);
+			dataM.get(taskPath);
+			StringTokenizer st = new StringTokenizer(taskPath,"/");
+			String taskId="";
+			while(st.hasMoreTokens())
+			{
+			taskId=st.nextToken();
+			}
+			//System.out.println(" TAsk Path "+taskPath);
+			
+			System.out.println(" TAsk Path "+taskPath);
+			//XModel taskM= (XModel)ioM.get(taskId);
+			taskM.setId(taskId);
+			
+			taskM.set(status);
+			//taskM.setAddByDefault(true);
+			for(int j=0;j<dt.getNumAttributes();j++)
+			{
+				String attrib=dt.getAttribName(j);
+				String attrib1=attrib.toLowerCase();
+				
+				/* Paranoid maintenance of state of legacy code which took a round about root of getting the taskpath while reading and also while saving it*/
+				if(attrib1.equals("task") ||attrib1.equals("survey_type")||attrib1.equals("id"))
+				{
+					continue;
+				}
+			taskM.set("@"+attrib1,row.get(j).get());
+			}
+			
+			System.out.println(" >>> "+taskM.get("@task"));
+		
+			 
+		}
+		
+		
+	}
+	catch(Exception e)
+	{
+		e.printStackTrace();
+	}
+	}
+	
+/**
+*	This method is used to get the task.
+*/
+
+	public  void getTasks(String parentPath ,String team,XTaskModel ioM,String surveyType,String area,String house,String household,String individual)
+	{init();
+		String taskStr=parentPath;//"taskdefinitions/"+getSurveyType()+"_taskdefinition/task0";
+		String context=((area != null && !area.equals("") &&!area.equals("-1")&&!area.equals("0"))?"and area='"+area+"'" :"")+((house !=null && !house.equals(""))?" and house='"+house+"'":"'")+ ((household !=null && !household.equals(""))?" and household='"+household+"'":"'")+((individual !=null && !individual.equals(""))?" and member='"+individual+"'":"");
+		System.out.println(taskStr);	
+		String constraint=(ioM.constraint==null||ioM.constraint.equals(""))?"":(" and "+ioM.constraint);
+		try
+		{
+					
+			String where="assignedto='"+team+"' and  survey_type='"+surveyType+"'  and task LIKE '"+taskStr+"/%' and  task NOT LIKE '"+taskStr+"/%/%' "+context+ constraint;
+			System.out.println(where);
+			DatabaseTableModel dt= new DatabaseTableModel();
+			dt.setupTable("tasks","*",where,"test",false);
+		//	dt.setDistinct(true);
+			dt.retrieve();
+		
+	//		System.out.println(sql2);				
+			 
+		//	ResultSet rs1 = stmt2.executeQuery(sql2);
+			
+			for(int i=0; i<dt.getNumChildren();i++)
+			{
+				XModel row=dt.get(i);
+				XTaskModel taskM =new XTaskModel();
+				ioM.append(taskM);
+				
+				String status="";
+				for(int j=0;j<dt.getNumAttributes();j++)
+				{
+					String attrib=dt.getAttribName(j);
+					String attrib1=attrib.toLowerCase();
+				
+					if(attrib1.equals("survey_type"))
+					taskM.surveyType=row.get(attrib).toString();
+					if(attrib1.equals("task"))	
+				taskM.task=row.get(attrib).toString();
+					if(attrib1.equals("area"))
+				taskM.area=row.get(attrib).toString();
+					if(attrib1.equals("house"))
+				taskM.house=row.get(attrib).toString();
+					if(attrib1.equals("household"))
+				taskM.household=row.get(attrib).toString();
+					if(attrib1.equals("member"))
+				taskM.member=row.get(attrib).toString();
+					if(attrib1.equals("assignedto"))
+				taskM.assignedTo=row.get(attrib).toString();
+					if(attrib1.equals("survey_type"))
+				status=row.get(attrib).toString();
+				}
+				
+				String taskPath=getTaskStatusPath(taskM.task,"healthcheckup",taskM.area,taskM.house,taskM.household,taskM.member);
+				StringTokenizer st = new StringTokenizer(taskPath,"/");
+				String taskId="";
+				while(st.hasMoreTokens())
+				{
+				taskId=st.nextToken();
+				}
+				//System.out.println(" TAsk Path "+taskPath);
+				
+				System.out.println(" TAsk Path "+taskPath);
+				//XModel taskM= (XModel)ioM.get(taskId);
+				taskM.setId(taskId);
+				
+				taskM.set(status);
+				//taskM.setAddByDefault(true);
+				for(int j=0;j<dt.getNumAttributes();j++)
+				{
+					if(dt.getAttribName(j).equals("task") ||dt.getAttribName(j).equals("survey_type")||dt.getAttribName(j).equals("id"))
+					{
+						continue;
+					}
+				taskM.set("@"+dt.getAttribName(j),row.get(j).get());
+				}
+				
+				System.out.println(" >>> "+taskM.get("@task"));
+			//	taskM.setAddByDefault(false);
+			
+			//taskM.setId(taskPath);
+			//ioM.get(taskPath)
+			//	testP(taskM.get("@task").toString(),team,taskM);
+//ioM.append(taskM);
+				 
+			}
+			
+			
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	*	This method is used to get the task.
+	*/
+	
+	public  void  testP(String parentPath ,String team,XModel ioM)
+	{
+		String taskStr=parentPath;//"taskdefinitions/"+getSurveyType()+"_taskdefinition/task0";
+		//String context=((!area.equals(""))?"and area="+area :"")+((!house.equals(""))?" and house="+house:"")+ ((!household.equals(""))?" and household="+household:"")+((!individual.equals(""))?" and member="+individual:"");
+		System.out.println(taskStr);	
+		try
+		{
+					
+			String where="assignedto="+team+" and  survey_type='2'  ";//and task LIKE '"+taskStr+"/%' and  task NOT LIKE '"+taskStr+"/%/%' ";
+			DatabaseTableModel dt= new DatabaseTableModel();
+			dt.setupTable("tasks","*",where,"test",false);
+		//	dt.setDistinct(true);
+			dt.retrieve();
+		
+	//		System.out.println(sql2);				
+			 
+		//	ResultSet rs1 = stmt2.executeQuery(sql2);
+			
+			for(int i=0; i<dt.getNumChildren();i++)
+			{
+				XModel row=dt.get(i);
+				
+				String task=row.get("task").toString();
+				String area=row.get("area").toString();
+				String house=row.get("house").toString();
+				String household=row.get("household").toString();
+				String member=row.get("member").toString();
+				String status=row.get("status").toString();
+				
+				String taskPath=getTaskStatusPath(task,"healthcheckup",area,house,household,member);
+				
+				XModel taskM= (XModel)ioM.get(taskPath);
+				taskM.set(status);
+				for(int j=0;j<dt.getNumAttributes();j++)
+				{
+					if(dt.getAttribName(j).equals("task") ||dt.getAttribName(j).equals("survey_type")||dt.getAttribName(j).equals("id"))
+					{
+						continue;
+					}
+				taskM.set("@"+dt.getAttribName(j),row.get(j).get());
+				}
+				System.out.println(" >>> "+taskM.get("@task"));
+			
+			//taskM.setId(taskPath);
+			//ioM.get(taskPath)
+			//	testP(taskM.get("@task").toString(),team,taskM);
+//ioM.append(taskM);
+				 
+			}
+			
+			
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+	
+		
+	}
+	
+	/**
+	 * This method is used to get path.
+	 * @param taskM
+	 * 			contains parent details
+	 * @param rel
+	 * 			contains parent details
+	 * @return
+	 * 		path in string.
+	 */
+	
+	public  String getPath(XModel taskM,XModel rel)
+	{
+		XModel parent=taskM.getParent();
+		String id=taskM.getId();
+		while(parent !=null && parent != rel)
+		{
+			id=parent.getId()+"/"+id;
+			parent=parent.getParent();
+		}
+		return id;
+		
+			
+	}
+	
+	/**
+	 * This method is used to split the path based on the seperator.
+	 * @param path
+	 * 			path to be split.
+	 * @param sep
+	 * 			seperator which split the path.
+	 * @param index
+	 * 			index of the path.
+	 * @return
+	 * 		vector which contain splited data.
+	 */
+	
+	public  Vector split(String path,String sep,int index)
+	{
+		StringTokenizer st = new StringTokenizer(path,"/");
+		Vector path1=new Vector();
+		while(st.hasMoreTokens())
+		{
+			String ele=st.nextToken();
+			if(ele.indexOf(sep)!=-1)
+			{
+				StringTokenizer st1= new StringTokenizer(ele,sep);
+				int count=0;
+				
+				for(count=0;count <= index && st1.hasMoreTokens();count++ )
+				{
+				String tmp= 	st1.nextToken();
+					
+					if(count==index && tmp != null && !tmp.equals("null") && !tmp.equals(""))
+					{
+						path1.add(tmp);
+						
+					}
+					//count++;
+				}
+				
+			}
+			
+		}
+		
+		return path1;
+		
+	}
+	/**
+	 * 
+	 * @param taskPath
+	 * @deprecated
+	 */
+	public  void dataPath(String taskPath)
+	{
+		
+	}
+	
+	/**
+	 * This method is used to set the date format.
+	 * @return
+	 * 		date format.
+	 */
+	
+	public  DateFormat getMysqlDateFormat()
+	{
+		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		return df;
+	}
+	
+	/**
+	 * This method is used to convert string into integer.
+	 * @param obj
+	 * 			value of the string object.
+	 * @param defaultVal
+	 * 			default interger value.
+	 * @return
+	 * 		converted integer value or default value.
+	 */
+	
+	public  int toInt(String obj,int defaultVal)
+	{
+		try{
+		int val=Integer.parseInt(obj);
+		return val;
+		}
+		catch(Exception e)
+		{
+		
+		}
+		return defaultVal;
+	
+	}
+	
+	/**
+	 * This method is used to convert string into date.
+	 * @param obj
+	 * 			value of the string object.
+	 * @param defaultVal
+	 * 			default date value.
+	 * @return
+	 * 		converted date value or default date value.
+	 */
+	
+	public  Date toDatetime(String obj, Date defaultVal)
+	{
+		try{
+			Date val=getDateFormat().parse(obj);
+			return val;
+			
+		}
+		catch(Exception e)
+		{
+			
+		}
+		return defaultVal;
+		
+	}
+	
+	/**
+	 * This method is used to specify date in particular format.
+	 * @param obj
+	 * 			specified date.
+	 * @param defaultVal
+	 * 			default string value.
+	 * @return
+	 * 		formatted date or default value.
+	 */
+	
+	public  String toMySQlDatetime(Date obj,String defaultVal)
+	{
+		try{
+			String val=getMysqlDateFormat().format(obj);
+			return val;
+			
+		}
+		catch(Exception e)
+		{
+			
+		}
+		return defaultVal;
+	}
+	/**
+	 * @deprecated
+	 * @param dataPath
+	 * @param taskPath
+	 * @return
+	 */
+	public  boolean checkIfTaskCanBeSaved(String dataPath, String taskPath)
+	{
+		return true;
+		
+	}
+	
+	/**
+	 * This method is used to store the task in the database.
+	 * @param taskM
+	 * 			contains the task details.
+	 * @param parentTaskPath
+	 * 			path of the parent task.
+	 * @param parentDataPath
+	 * 			path of the data of the task.
+	 * @return
+	 */
+	
+	public  int saveTaskToDb(XModel taskM, String parentTaskPath, String parentDataPath)
+	{
+		// construct task path
+		
+		String taskId = taskM.getId();
+		//System.ou
+		int hiphenIndex = taskId.indexOf("-");
+		//com.kentropy.logging.WebPortalLogger.info("Inside saveTaskToDb hiphenindex="+hiphenIndex);
+		String taskPath="";
+		String dataPath="";
+		if(hiphenIndex!=-1) // all task path may not have hiphen
+		{
+			taskPath =parentTaskPath+"/"+taskId.substring(0, hiphenIndex);
+			String dataStr = taskId.substring(hiphenIndex+1);
+			//com.kentropy.logging.WebPortalLogger.info("DataStr = "+dataStr);
+			// temporary fix for task0-null issue
+			if(!dataStr.equals("null"))
+			{
+				dataPath = parentDataPath+"/"+taskId.substring(taskId.indexOf("-")+1);
+				//com.kentropy.logging.WebPortalLogger.info("parentDataPath = "+parentDataPath+"  "+taskId.substring(taskId.indexOf("-")+1));
+                //t=test+"/"+taskId.substring(taskId.indexOf("-")+1);
+            //    com.kentropy.logging.WebPortalLogger.info("Data str is not null");
+			}
+			else
+				{
+				//com.kentropy.logging.WebPortalLogger.info("Data str is null");
+				return 0;
+				}
+		}	
+		else
+		{
+			taskPath = parentTaskPath+"/"+taskId;
+			//dataPath = parentDataPath;
+			
+		}
+		
+		
+		System.out.println(dataPath+ " "+taskPath);
+		StringTokenizer tknzr = new StringTokenizer(dataPath, "/");
+		String area=tknzr.hasMoreElements()?tknzr.nextToken():"";
+		String house=tknzr.hasMoreElements()?tknzr.nextToken():"";;
+		String household=tknzr.hasMoreElements()?tknzr.nextToken():"";;
+		String individual=tknzr.hasMoreElements()?tknzr.nextToken():"";
+		System.out.println(" Individual ="+individual);
+		
+	//	int attrIndex = taskM.getAttribute("assignedto");		
+		int assignedTo = toInt((String)taskM.get("@assignedto"),-1);
+		int areaId = toInt(area,-1);
+		int teamId = assignedTo;//toInt(assignedTo,-1);	
+		Date dtAssigned = toDatetime((String)taskM.get("@dateassigned"),null);	
+		int status = toInt((String)taskM.get(),-1);
+		Date stTime =toDatetime((String)taskM.get("@starttime"), null);
+		Date eTime =toDatetime((String)taskM.get("@endtime"), null);		
+		System.out.println("stTime="+stTime);
+		System.out.println("eTime="+eTime);
+		String stTimeStr = toMySQlDatetime(stTime, null);
+		String eTimeStr = toMySQlDatetime(eTime, null);;
+		String dtAssignedStr = toMySQlDatetime(dtAssigned, null);		
+		
+		//String sql = "insert into tasks(survey_type, task, status, area, house, household, member, assignedto, dateassigned, starttime, endtime, modifieddate) values('"+ENUMERATION_TYPE+"', '"+taskPath+"', "+status+", "+areaId+", '"+house+"', '"+household+"',  '"+individual+"', "+teamId+", '"+dateAssigned+"', '"+starttime+"', '"+endtime+"', '"+getDateFormat().format(new Date())+"')";
+		// Include check for assignedto, so that top level task 'CompleteAreas' gets created for each team
+	//	areaId=8;
+		int updatedRecords=0;
+	
+		if(!checkIfTaskCanBeSaved(dataPath,taskPath))
+		{
+			
+		}
+		else
+		{	
+
+		
+		try
+		{
+			
+			String table="tasks";
+			
+			String where="task='"+taskPath+"' and area="+areaId+" and house='"+house+"' and household='"+household+"' and member='"+individual+"' and survey_type="+2+" and status != 1";
+		
+			XModel dataM=taskM;
+			
+			saveData(table, where, dataM);
+	
+		}
+		catch(Exception exc)
+		{
+			//System.out.println(" >>> "+sql);
+			exc.printStackTrace();
+			throw new IllegalStateException("SAVE TASKS TO DB "+exc.toString());//getMessage());
+		}	
+		
+	
+		}
+		// store it top db
+			// for each cihldren c;all same function	
+		//System.out.println(" >> children"+taskM.getNumChildren());
+		/*try{
+		System.in.read();
+		}
+		catch(IOException io1)
+		{
+			
+		}*/
+		for(int index=0; index< taskM.getNumChildren(); index++)
+		{				
+				updatedRecords+=saveTaskToDb(taskM.get(index), taskPath, dataPath);			
+		}
+		
+		return updatedRecords;
+	}
+	
+	/**
+	 * This method is used to store the task to the table.
+	 * @param taskM	
+	 * 			contain the task details.
+	 * @param parentTaskPath
+	 * 			path to which the data is stored.
+	 * @return
+	 */
+	
+	public  int saveTaskToSingle(XModel taskM, String parentTaskPath)
+	{
+		// construct task path
+		
+		String taskId = taskM.getId();
+		//System.ou
+		int hiphenIndex = taskId.indexOf("-");
+		//com.kentropy.logging.WebPortalLogger.info("Inside saveTaskToDb hiphenindex="+hiphenIndex);
+		String taskPath="";
+		String dataPath="";
+		if(hiphenIndex!=-1) // all task path may not have hiphen
+		{
+			taskPath =parentTaskPath+"/"+taskId.substring(0, hiphenIndex);
+			String dataStr = taskId.substring(hiphenIndex+1);
+			//com.kentropy.logging.WebPortalLogger.info("DataStr = "+dataStr);
+			// temporary fix for task0-null issue
+			
+		}	
+		else
+		{
+			taskPath = parentTaskPath+"/"+taskId;
+			//dataPath = parentDataPath;
+			
+		}
+		
+		
+		System.out.println(dataPath+ " "+taskPath);
+		StringTokenizer tknzr = new StringTokenizer(dataPath, "/");
+		String area=tknzr.hasMoreElements()?tknzr.nextToken():"";
+		String house=tknzr.hasMoreElements()?tknzr.nextToken():"";;
+		String household=tknzr.hasMoreElements()?tknzr.nextToken():"";;
+		String individual=tknzr.hasMoreElements()?tknzr.nextToken():"";
+		System.out.println(" Individual ="+individual);
+		
+	//	int attrIndex = taskM.getAttribute("assignedto");		
+		int assignedTo = toInt((String)taskM.get("@assignedto"),-1);
+		int areaId = toInt(area,-1);
+		int teamId = assignedTo;//toInt(assignedTo,-1);	
+		Date dtAssigned = toDatetime((String)taskM.get("@dateassigned"),null);	
+		int status = toInt((String)taskM.get(),-1);
+		Date stTime =toDatetime((String)taskM.get("@starttime"), null);
+		Date eTime =toDatetime((String)taskM.get("@endtime"), null);		
+		System.out.println("stTime="+stTime);
+		System.out.println("eTime="+eTime);
+		String stTimeStr = toMySQlDatetime(stTime, null);
+		String eTimeStr = toMySQlDatetime(eTime, null);;
+		String dtAssignedStr = toMySQlDatetime(dtAssigned, null);		
+		
+		//String sql = "insert into tasks(survey_type, task, status, area, house, household, member, assignedto, dateassigned, starttime, endtime, modifieddate) values('"+ENUMERATION_TYPE+"', '"+taskPath+"', "+status+", "+areaId+", '"+house+"', '"+household+"',  '"+individual+"', "+teamId+", '"+dateAssigned+"', '"+starttime+"', '"+endtime+"', '"+getDateFormat().format(new Date())+"')";
+		// Include check for assignedto, so that top level task 'CompleteAreas' gets created for each team
+	//	areaId=8;
+		int updatedRecords=0;
+	
+		if(!checkIfTaskCanBeSaved(dataPath,taskPath))
+		{
+			
+		}
+		else
+		{	
+
+		
+		try
+		{
+			
+			String table="tasks";
+			
+			String where="task='"+taskPath+"' and area="+areaId+" and house='"+house+"' and household='"+household+"' and member='"+individual+"' and survey_type="+2+" and status != 1";
+		
+			XModel dataM=taskM;
+			
+			saveData(table, where, dataM);
+	
+		}
+		catch(Exception exc)
+		{
+			//System.out.println(" >>> "+sql);
+			exc.printStackTrace();
+			throw new IllegalStateException("SAVE TASKS TO DB "+exc.toString());//getMessage());
+		}	
+		
+	
+		}
+		// store it top db
+			// for each cihldren c;all same function	
+		//System.out.println(" >> children"+taskM.getNumChildren());
+		/*try{
+		System.in.read();
+		}
+		catch(IOException io1)
+		{
+			
+		}*/
+		for(int index=0; index< taskM.getNumChildren(); index++)
+		{				
+				updatedRecords+=saveTaskToDb(taskM.get(index), taskPath, dataPath);			
+		}
+		
+		return updatedRecords;
+	}
+	
+	/**
+	 * This method is used to get the data fromat.
+	 * @return
+	 * 		date format.
+	 */
+	
+	public  DateFormat getDateFormat()
+	{
+		SimpleDateFormat df = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+		return df;
+	}
+	
+	/**
+	 * 
+	 * This method is used to get area.
+	 */
+
+	public  XModel getAreas(String assignedTo,XModel dataM,String surveyType) throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("tasks","area","assignedto='"+assignedTo+"' and area != -1 and survey_type='"+surveyType+"'","test",false);
+//		dt.set
+		dt.setDistinct(true);
+		dt.retrieve();
+	//	CachedDatabaseTable dt1=dt.getTable();
+		System.out.println(" debug getareas "+dt.getNumChildren());
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+			//areaM.append(dt.getValue(i));
+		String id=dt.get(i).get("area").toString();
+		XModel tt=(XModel)dataM.get(id);
+		//	dt.get(i).setId(dt.get(i).get("houseno").toString());
+		//tt.setId(dt.get(i).get("houseno").toString());
+			XModel xm=getAreadetails(id);
+			//dt.get(i).append(xm);
+		//	tt=getH(area,house,tt.getId(),tt);
+			tt.append(xm);
+		//	areaM.append(dt.get(i));
+		}
+		
+		//dt1.dump(new FileWriter("c:\\testfetch1.xml"));
+		return dataM;
+		
+	}
+	
+	/**
+	 * 
+	 * This method is used to get area details.
+	 */
+	
+	public  XModel getAreadetails(String area)
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		//dt.setupTable("hc_area","*","id="+area,"test",true);
+		String sql="select ea.id areacode,ea.landmark landmark,ea.pincode pin, ea.name areaname, ea.description, ea.healthcheckup hcid, ea.target target, su.code sampleunitcode, su.name sampleunitname, si.name state, di.name district, su.vort vort from hc_area ea left join healthcheckup s on ea.healthcheckup=s.id left join sampleunit su on s.sunit=su.code left join states_india si on su. state=si.id  left join districts_india di on su.district=di.id ";
+		String where="ea.id="+area;
+		dt.setSqlStatement(sql + "where "+where,"test",false);
+		dt.setName("updatestatus");
+		dt.setId("updatestatus");
+		dt.setTagName("data");
+		dt.retrieve();
+		XBaseModel xm= new XBaseModel();
+		xm.setId("taskinfo");
+	//	x
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+		//	dt.get(i).setTagName("data");
+			for(int j=0;j<dt.getNumAttributes();j++)
+			{
+				
+				XModel tt=(XModel)xm.get(dt.getAttribName(j));
+				tt.set(dt.get(i).get(j).get());
+				
+			}
+			
+		}
+		
+		
+		
+		return xm;
+		
+	}
+	
+	/**
+	 * 
+	 * This method is used to get the users of the team.
+	 */
+	
+ public  void getUsersForTeam(String team,KenList list)
+ {
+	 DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("team_user","user","team='"+team+"'","test",false);
+		dt.retrieve();
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+			//areaM.append(dt.getValue(i));
+		String id=dt.get(i).get("user").toString();
+	//	XModel tt=(XModel)dataM.get(id);
+		list.add(id);
+		}
+		
+ }
+	
+ /**
+	 * 
+	 * This method is used to get house.
+	 */
+ 
+	public  XModel getHouses(String area,XModel areaM) throws Exception
+	{
+		System.out.println(" Debug area is "+area);
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("houses","houseno","enum_area="+area,"test",false);
+		dt.retrieve();
+	//	CachedDatabaseTable dt1=dt.getTable();
+		System.out.println(dt.getNumChildren());
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+			//areaM.append(dt.getValue(i));
+		String id=dt.get(i).get("houseno").toString();
+		XModel tt=(XModel)areaM.get(id);
+		//	dt.get(i).setId(dt.get(i).get("houseno").toString());
+		//tt.setId(dt.get(i).get("houseno").toString());
+			XModel xm=getHousedetails(id,area);
+			//dt.get(i).append(xm);
+			tt.append(xm);
+		
+			xm.append(getDataM("data", "gpscheck", area, id, null, null));
+			//xm.setId("gpscheck");
+		//	areaM.append(dt.get(i));
+		}
+		
+		//dt1.dump(new FileWriter("c:\\testfetch1.xml"));
+		return areaM;
+		
+	}
+	
+	/**
+	 * 
+	 * This method is used to get house details.
+	 */
+	public  XModel getHousedetails(String house,String area)
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("houses","*","enum_area="+area+" and houseno="+house,"test",true);
+		dt.setName("updatestatus");
+		dt.setId("updatestatus");
+		dt.setTagName("data");
+		dt.retrieve();
+		XBaseModel xm= new XBaseModel();
+		xm.setId("updatestatus");
+	//	x
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+		//	dt.get(i).setTagName("data");
+			for(int j=0;j<dt.getNumAttributes();j++)
+			{
+				
+				XModel tt=(XModel)xm.get(dt.getAttribName(j));
+				tt.set(dt.get(i).get(j).get());
+				
+			}
+			
+		}
+		
+		
+		
+		return xm;
+		
+	}
+	
+	/**
+	 * 
+	 * This method is used to get house details.
+	 */
+	
+	public  XModel getHousedetails(String house,String area,XModel xm)
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("houses","*","enum_area="+area+" and houseno="+house,"test",true);
+		dt.setName("updatestatus");
+		dt.setId("updatestatus");
+		dt.setTagName("data");
+		dt.retrieve();
+		//XBaseModel xm= new XBaseModel();
+		//xm.setId("updatestatus");
+	//	x
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+		//	dt.get(i).setTagName("data");
+			for(int j=0;j<dt.getNumAttributes();j++)
+			{
+				
+				XModel tt=(XModel)xm.get(dt.getAttribName(j));
+				tt.set(dt.get(i).get(j).get());
+				
+			}
+			
+		}
+		
+		
+		
+		return xm;
+		
+	}
+	
+	/**
+	 * This method is used to get the current user of the project.
+	 * @return
+	 * 		current user of the project.
+	 */
+	
+	public  String getCurrentUser()
+	{
+		XModel rootModel=	XProjectManager.getCurrentProject().getModel();
+		String currentUser= (String)((XModel)rootModel.get("temp/currentuser")).get();
+		return currentUser;
+	}
+	
+	/**
+	 * This method is used to create the change log.
+	 * @param table
+	 * 			name of the table.
+	 * @param where
+	 * 			condition for the query.
+	 * @param keyFields
+	 * 			contains list of key fields
+	 * @throws Exception
+	 */
+	
+	public  void  createChangeLog(String table,String where,Vector keyFields) throws Exception
+	{
+		
+		DatabaseTableModel dt= new DatabaseTableModel();
+	
+	
+	
+		
+		
+		dt.setupTable(table,"*",where,"test",true);
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		dt.retrieve();
+		for (int i=0; i<dt.getNumChildren();i++)
+		{
+			//System.out.println(" total "+dt.getNumChildren());
+			//dt.first();
+			String where1="";
+			KenList kl= new KenList();
+			for(int k=0; k < keyFields.size();k++)
+			{
+				String value=dt.get(i).get(keyFields.get(k).toString()).toString();
+				kl.add(keyFields.get(k).toString()+"='"+value+"'");
+			}
+			where1=kl.toString(" and ");
+			ChangeLog.startLog(table,where1,getCurrentUser());
+			String qry ="update "+table+" set ";
+			int count=0;
+			for(int j=0;j< dt.getNumAttributes();j++)
+			{
+				String fld=dt.getAttribName(j);
+				
+			
+			//	XModel valM=(XModel)dataM.get("@"+fld);
+				int colType=dt.getMetaData().getColumnType(j+1);
+			/*	String def=(colType==4)?"0":null;
+				Object value=dataM.get("@"+fld);
+				value=value==null|| value.equals("")?def:("'"+value+"'");
+				qry+=(count==0?"":",")+fld+"="+value;*/
+				String value=dt.get(i).get(fld).toString();
+				ChangeLog.logField(fld, (String)value);
+				count++;
+			}
+			ChangeLog.endLog();
+		}
+		
+	}
+	
+	/**
+	 * This method is used to save data to the table.
+	 * @param table
+	 * 			name of the table.
+	 * @param where
+	 * 			condition for the query.
+	 * @param dataM
+	 * 			contains the details of the tasks.
+	 * @throws Exception
+	 */
+	
+	public  void  saveDataM(String table,String where,XModel dataM) throws Exception
+	{
+		
+		DatabaseTableModel dt= new DatabaseTableModel();
+	
+	ChangeLog.startLog(table,where,getCurrentUser());
+	
+		
+		
+		dt.setupTable(table,"*",where,"test",true);
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		dt.retrieve();
+		if(dt.getNumChildren()>0)
+		{
+			System.out.println(" total "+dt.getNumChildren());
+			//dt.first();
+			String qry ="update "+table+" set ";
+			int count=0;
+			for(int j=0;j< dt.getNumAttributes();j++)
+			{
+				String fld=dt.getAttribName(j);
+				if(fld.equals("id"))
+					continue;
+			
+			//	XModel valM=(XModel)dataM.get("@"+fld);
+				int colType=dt.getMetaData().getColumnType(j+1);
+				String def=(colType==4)?"0":null;
+				Object value=dataM.get("@"+fld);
+				value=value==null|| value.equals("")?def:("'"+value+"'");
+				qry+=(count==0?"":",")+fld+"="+value;
+				ChangeLog.logField(fld, (String)value);
+				count++;
+			}
+			
+			int updates=dt.executeUpdate(qry+ " where "+where );
+			System.out.println("updates "+updates);
+		//	dt.sync();
+			
+		}
+		else{
+			String s="insert into "+table;
+			String flds="";
+			String values="";
+			int count=0;
+			for(int j=0;j< dt.getNumAttributes();j++)
+			{
+				String fld=dt.getAttribName(j);
+				if(fld.equals("id"))
+					continue;
+				
+				//XModel valM=(XModel)dataM.get(fld);
+				int colType=dt.getMetaData().getColumnType(j+1);
+				String def=(colType==4)?"0":null;
+				
+				//Object value=valM==null?null:valM.get();
+				Object value=dataM.get("@"+fld);
+				value=value==null|| value.equals("")?def:("'"+value+"'");
+				flds+=(count!=0?",":"")+fld;
+				values+=(count!=0?",":"")+(value);
+				ChangeLog.logField(fld, (String)value);
+				count++;
+			}
+			s+="("+flds+") VALUES("+values+")";
+			
+			System.out.println(" Debug sql "+s);
+			
+			
+		PreparedStatement ps=	dt.getTable().getPreparedStatement(s);
+		ps.execute();
+		dt.getTable().releasePreparedStatement(ps);
+		ChangeLog.endLog();
+		}
+	}
+	
+	/**
+	 * This method is used to import the change log. 
+	 * @param log
+	 * 			name of log.
+	 * @throws Exception
+	 */
+	
+	public  void  importChangeLog(String log) throws Exception
+	{
+		
+		//XBaseModel xm= new XBaseModel();
+		StringReader sr= new StringReader(log);
+		XmlElement xe=XmlSource.read(sr);
+		String logId=xe.getAttribute("id");
+		XmlElement dt1=xe.elementAt(0);
+		String table=dt1.getAttribute("table");
+		String where=dt1.getAttribute("key");
+		String user1=dt1.getAttribute("user");
+		XmlElement data=	dt1.elementAt(0);
+		Enumeration e=data.enumerateAttributeNames();
+		saveData1(table, where, data,user1);
+
+		}
+	
+	/**
+	 * This method is used to import the change log. 
+	 * @param log
+	 * 			name of log.
+	 * @throws Exception
+	 */
+	
+	public  void  importChangeLogs(String logs) throws Exception
+	{
+		
+		//XBaseModel xm= new XBaseModel();
+		//XDataSource ds= new XData
+		StringReader sr= new StringReader(logs);
+		XmlElement xe0=XmlSource.read(sr);
+		Vector children=xe0.getChildren();
+		for(int i=0 ;i<children.size();i++)
+		{
+			XmlElement xe=(XmlElement)children.get(i);
+		String logId=xe.getAttribute("id");
+		XmlElement dt1=xe.elementAt(0);
+		String table=dt1.getAttribute("table");
+		String where=dt1.getAttribute("key");
+		String user=dt1.getAttribute("user");
+		XmlElement data=	dt1.elementAt(0);
+		Enumeration e=data.enumerateAttributeNames();
+		try{
+		saveData1(table, where, data,user);
+		}
+		catch(Exception e1)
+		{
+			e1.printStackTrace();
+		}
+		}
+
+		}
+	
+	/**
+	 * This method is used to deliver the message to the recepient.
+	 * @param msg
+	 * 			content of the messages.
+	 * @param recepient
+	 * 			name of the recepient.
+	 * @throws Exception
+	 */
+	
+	public  void deliverMessage(String msg, String recepient) throws Exception
+	{
+DatabaseTableModel dt= new DatabaseTableModel();
+		
+		dt.setupTable("mqueue","*","","test",true);
+		String sql="insert into mqueue (message,recepient) VALUES('"+msg+"','"+recepient+"')";
+		System.out.println(sql);
+		
+			PreparedStatement ps=	dt.getTable().getPreparedStatement(sql);
+		ps.execute();
+		//dt.getTable().releasePreparedStatement(ps);
+		ps.close();		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		//dt.retrieve();
+	}
+	
+	/**
+	 * This method is used to update the message status to the recepient.
+	 * @param msg
+	 * 			content of the messages.
+	 * @param recepient
+	 * 			name of the recepient.
+	 * @throws Exception
+	 */
+	public  void  updateMessageStatus(String message,String recepient) throws Exception
+	{
+DatabaseTableModel dt= new DatabaseTableModel();
+dt.setupTable("mqueue","*","","test",true);
+
+		PreparedStatement ps= dt.getTable().getPreparedStatement("update mqueue set status='1' where message='"+message+"' and recepient='"+recepient+"'");
+		ps.execute();
+		ps.close();
+	}
+		public  Vector  getMessages(String recepient) throws Exception
+	{
+DatabaseTableModel dt= new DatabaseTableModel();
+		Vector v= new Vector();
+String where=" recepient='"+recepient+"' and status is null";
+		dt.setupTable("mqueue","message",where,"test",true);
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		dt.retrieve();
+		if(dt.getNumChildren()>0)
+		{
+			for(int i=0;i<dt.getNumChildren();i++)
+			{
+			XModel row=dt.get(i);
+		
+			System.out.println(" total "+dt.getNumChildren());
+			String message=(String)row.get(0).get();
+			v.add(message);
+			}
+		}
+		return v;
+			
+			//dt.first();
+		
+			/*for(int j=0;j< dt.getNumAttributes();j++)
+			{
+				String fld=dt.getAttribName(j);
+				XModel valM=(XModel)dataM.get(fld);
+				int colType=dt.getMetaData().getColumnType(j+1);
+				String def=(colType==4)?"0":null;
+				
+				Object value=valM==null?null:valM.get();
+				value=value==null|| value.equals("")?def:("'"+value+"'");
+				 qry+=(j==0?"":",")+fld+"="+value;
+			}*/
+	}
+	
+		/**
+		 * This method is used to save the changelog to the table.
+		 * @param log
+		 * 			name of the log
+		 * @throws Exception
+		 */
+		
+	public  void  saveChangeLog(String log) throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		
+		dt.setupTable("changelogs","*","","test",true);
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		
+			String s="insert into "+"changelogs";
+			String flds="";
+			String values="";
+			s+=" (value) VALUES("+log+")";
+			
+			System.out.println(" Debug sql "+s);
+			
+			
+		PreparedStatement ps=	dt.getTable().getPreparedStatement(s);
+		ps.execute();
+		dt.getTable().releasePreparedStatement(ps);
+		}
+	
+	/**
+	 * This method is used to save data to the table.
+	 * @param table
+	 * 			name of the table.
+	 * @param where
+	 * 			condition for the query.
+	 * @param dataM
+	 * 			contains the details of the tasks.
+	 * @throws Exception
+	 */
+	public  void  saveData(String table,String where,XModel dataM) throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		
+		dt.setupTable(table,"*",where,"test",true);
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		dt.retrieve();
+		if(dt.getNumChildren()>0)
+		{
+			System.out.println(" total "+dt.getNumChildren());
+			//dt.first();
+			String qry ="update "+table+" set ";
+			for(int j=0;j< dt.getNumAttributes();j++)
+			{
+				String fld=dt.getAttribName(j);
+				XModel valM=(XModel)dataM.get(fld);
+				int colType=dt.getMetaData().getColumnType(j+1);
+				String def=(colType==4)?"0":null;
+				
+				Object value=valM==null?null:valM.get();
+				value=value==null|| value.equals("")?def:("'"+value+"'");
+				 qry+=(j==0?"":",")+fld+"="+value;
+			}
+			
+			int updates=dt.executeUpdate(qry+ " where "+where );
+			System.out.println("updates "+updates);
+		//	dt.sync();
+			
+		}
+		else{
+			String s="insert into "+table;
+			String flds="";
+			String values="";
+			for(int j=0;j< dt.getNumAttributes();j++)
+			{
+				String fld=dt.getAttribName(j);
+				XModel valM=(XModel)dataM.get(fld);
+				int colType=dt.getMetaData().getColumnType(j+1);
+				String def=(colType==4)?"0":null;
+				
+				Object value=valM==null?null:valM.get();
+				value=value==null|| value.equals("")?def:("'"+value+"'");
+				flds+=(j!=0?",":"")+fld;
+				values+=(j!=0?",":"")+(value);
+			}
+			s+="("+flds+") VALUES("+values+")";
+			
+			System.out.println(" Debug sql "+s);
+			
+			
+		PreparedStatement ps=	dt.getTable().getPreparedStatement(s);
+		ps.execute();
+		dt.getTable().releasePreparedStatement(ps);
+		}
+	
+	//	x
+		/*for(int i=0;i<dt.getNumChildren();i++)
+		{
+		
+			for(int j=0;j<dt.getNumAttributes();j++)
+			{
+				
+				XModel tt=(XModel)xm.get(dt.getAttribName(j));
+				tt.set(dt.get(i).get(j).get());
+				
+			}
+			
+		}*/
+		
+		
+		
+		
+		
+	}
+	
+	/**
+	 * This method is used to save the conflict data to the table.
+	 * @param table
+	 * 			name of the table.
+	 * @param where
+	 * 			condition for the query.
+	 * @param dataM
+	 * 			contains the details of the tasks.
+	 * @throws Exception
+	 */
+	
+	public  void  saveConflictData(String table,String where,XModel dataM) throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		
+		dt.setupTable(table,"*",where,"test",true);
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		dt.retrieve();
+		
+			String s="insert into "+table;
+			String flds="";
+			String values="";
+			for(int j=0;j< dt.getNumAttributes();j++)
+			{
+				String fld=dt.getAttribName(j);
+				XModel valM=(XModel)dataM.get(fld);
+				int colType=dt.getMetaData().getColumnType(j+1);
+				String def=(colType==4)?"0":null;
+				
+				Object value=valM==null?null:valM.get();
+				//value=value==null|| value.equals("")?def:("'"+value+"'");
+				flds+=(j!=0?",":"")+fld;
+				values+=(j!=0?",":"")+(value);
+			}
+			s+="("+flds+") VALUES("+values+")";
+			
+			System.out.println(" Debug sql "+s);
+			
+			
+		PreparedStatement ps=	dt.getTable().getPreparedStatement(s);
+		ps.execute();
+		dt.getTable().releasePreparedStatement(ps);
+		
+	
+		
+		
+		
+	}
+	
+	/**
+	 * This method is used to save data to the table.
+	 * @param table
+	 * 			name of the table.
+	 * @param where
+	 * 			condition for the query.
+	 * @param dataM
+	 * 			contains the details of the tasks.
+	 * @param user1
+	 * 			name of the surveyor.
+	 * @throws Exception
+	 */
+	
+	public  void  saveData1(String table,String where,XmlElement dataM,String user1) throws Exception
+	{
+		XModel conflictData=new XBaseModel();
+		SimpleDateFormat sdf= new SimpleDateFormat("yyyy-MM-dd");
+		conflictData.set("date","'"+sdf.format(new Date())+"'");
+		conflictData.set("surveyor","'"+user1+"'");
+		DatabaseTableModel dt= new DatabaseTableModel();
+		
+		dt.setupTable(table,"*",where,"test",true);
+		
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		dt.retrieve();
+		if(table.equals("data"))
+		{
+		
+		String value1=dataM.getAttribute("value");
+		if(value1==null || value1.equals(" Choose Any One"))
+			return;
+		}
+		System.out.println(" Debug children "+dt.getNumChildren());
+		if(dt.getNumChildren()>0)
+		{
+		//	To be tested
+		/*	if(table.equals("task"))
+			{
+				String status=(String)dt.get(0).get("status");
+				if(status !=null && status.equals("2"))
+					return;
+			}
+			else
+				if(table.equals("data"))
+				{
+					
+					String status=(String)dt.get(0).get("value");
+					if(status !=null && !status.equals("") )
+						return;
+				}*/
+			System.out.println(" total "+dt.getNumChildren());
+			//dt.first();
+			String qry ="update "+table+" set ";
+			int count=0;
+			for(int j=0;j< dt.getNumAttributes();j++)
+			{
+				String fld=dt.getAttribName(j).toLowerCase();
+				String value=dataM.getAttribute(fld);
+				int colType=dt.getMetaData().getColumnType(j+1);
+				String def=(colType==4)?"0":null;
+				
+				// value=value==null?null:value;
+				value=value==null|| value.equals("")?def:("'"+value+"'");
+				conflictData.set(fld,value);
+				if(!fld.equals("id") && !(table.equals("keyvalue") && fld.equals("key1")) )
+				{
+				 qry+=(count==0?"":",")+fld+"="+value;
+				 count++;
+				}
+			}
+			
+			if(table.equals("data"))
+			{
+				
+			saveConflictData("data_conflicts","",conflictData);
+			}
+			if(table.equals("tasks"))
+			{
+				
+		
+			String status=dataM.getAttribute("status");
+			String endtime=dataM.getAttribute("endtime");
+			if((status!=null && status.equals("2"))|| (endtime!=null && endtime.length()>0))
+			{
+				System.out.println(qry+ " where "+where );
+			try{	
+			int updates=dt.executeUpdate(qry+ " where "+where );
+			System.out.println("updates "+updates);
+			}
+			catch(Exception e)
+			{
+				e.printStackTrace();
+			}
+			
+			}
+			else
+			{
+				saveConflictData("task_conflicts","",conflictData);
+				
+			}
+			}
+			if(table.equals("keyvalue"))
+			{
+				System.out.println(" query "+qry);
+				
+				int updates=dt.executeUpdate(qry+ " where "+where );
+				System.out.println("updates "+updates);
+			}
+		
+		//	dt.sync();
+			
+		}
+		else{
+			String s="insert into "+table;
+			String flds="";
+			String values="";
+			int count=0;
+			for(int j=0;j< dt.getNumAttributes();j++)
+			{
+				String fld=dt.getAttribName(j);
+				String value=dataM.getAttribute(fld.toLowerCase());//check this
+				int colType=dt.getMetaData().getColumnType(j+1);
+				String def=(colType==4)?"0":null;
+				if(fld.toLowerCase().equals("id"))
+					continue;
+				
+				System.out.println("Value is "+value);
+				// value=valM==null?null:value;
+				value=value==null|| value.equals("")?def:("'"+value+"'");
+				flds+=(count!=0?",":"")+fld;
+				values+=(count!=0?",":"")+(value);
+				count++;
+			}
+			s+="("+flds+") VALUES("+values+")";
+			
+			System.out.println(" Debug sql "+s);
+			
+			
+		PreparedStatement ps=	dt.getTable().getPreparedStatement(s);
+		ps.execute();
+		dt.getTable().releasePreparedStatement(ps);
+		}
+		
+		if(table.equals("tasks"))
+		{
+			
+	
+		String status=dataM.getAttribute("status");
+		String task=dataM.getAttribute("task");
+		String pid=dataM.getAttribute("member");
+		String type=dataM.getAttribute("survey_type");
+		String endtime=dataM.getAttribute("endtime");
+		if((status!=null && status.equals("2"))|| (endtime!=null && endtime.length()>0))
+		{
+			if(type!=null && type.equals("6"))
+			{
+				Process.taskStatusUpdate(pid, task, status);
+			
+		}
+		}
+		}
+	//	x
+		/*for(int i=0;i<dt.getNumChildren();i++)
+		{
+		
+			for(int j=0;j<dt.getNumAttributes();j++)
+			{
+				
+				
+				XModel tt=(XModel)xm.get(dt.getAttribName(j));
+				tt.set(dt.get(i).get(j).get());
+				
+			}
+			
+		}*/
+		
+		
+		
+		
+		
+	}
+	public  String getTaskContext(String task,String area,String house,String hh,String idc)
+	{
+		String context="";
+		if(task !=null)
+		{
+			context +=" task = '"+task+"'";
+			if(area !=null)
+			{
+				context +="and area = '"+area+"'";
+			
+			if(house !=null)
+			{
+				context +="and house = '"+house+"'";
+				{
+			if(hh !=null)
+			{
+				context +="and household = '"+hh+"'";
+				
+			if(idc !=null)
+			{
+				context +="and member = '"+idc+"'";
+				}
+				}
+			}
+			}
+			
+				
+		}
+	}
+		return context;
+	}
+	public  String getTaskContext(String task,String area,String house,String hh,String idc,String assignedTo)
+	{
+		String context="";
+		
+		if(task !=null)
+		{
+			context +=" task = '"+task+"' ";
+			if(area !=null)
+			{
+				context +="and area = '"+area+"'";
+			
+			if(house !=null)
+			{
+				context +="and house = '"+house+"'";
+				
+			if(hh !=null)
+			{
+				context +="and household = '"+hh+"'";
+				
+			if(idc !=null)
+			{
+				context +="and member = '"+idc+"'";
+				}
+				}
+			
+		
+			}
+			
+			
+			}
+			if(assignedTo !=null)
+			{
+				context +="and assignedTo = '"+assignedTo+"'";
+			}
+				
+			}
+			
+				
+		
+	
+		return context;
+	}
+	
+	public  void saveTask(XTaskModel taskM) throws Exception
+	{
+		saveTask(taskM.task,taskM.surveyType, taskM.area, taskM.house, taskM.household, taskM.member, taskM);
+	}
+	public  void  saveTask(String task,String surveyType,String area,String house,String hh,String idc,XModel dataM) throws Exception
+	{
+		
+		DatabaseTableModel dt= new DatabaseTableModel();
+		String table="tasks";
+		String assignedTo=(String)dataM.get("@assignedto");
+		
+		if(task.equals("taskdefinitions/healthcheckup_taskdefinition/task0"))
+		return;
+		String where=getTaskContext(task,area,house,hh,idc,assignedTo);
+		ChangeLog.startLog(table, where,getCurrentUser());
+		dt.setupTable(table,"*",where,"test",true);
+		dt.retrieve();
+		dataM.set("@task", task);
+		dataM.set("@area", area);
+		dataM.set("@house", house);
+		dataM.set("@household", hh);
+		dataM.set("@member", idc);
+		dataM.set("@survey_type", surveyType);
+		dataM.set("@status",dataM.get());
+		//dataM.set("@status",)
+		System.out.println(" TASK "+dataM.get("@task"));
+
+		if(dt.getNumChildren()>0)
+		{
+			System.out.println(" total "+dt.getNumChildren());
+			//dt.first();
+			String qry ="update "+table+" set ";
+			int count=0;
+						for(int j=0;j< dt.getNumAttributes();j++)
+			{
+			
+				String fld=dt.getAttribName(j);
+				System.out.println(" DEBUG column "+dt.getMetaData().getColumnType(j+1)+" "+fld);
+				if(fld.equals("id"))
+					continue;
+				
+				int colType=dt.getMetaData().getColumnType(j+1);
+				String def=(colType==4)?"0":null;
+				String value=(String)dataM.get("@"+fld);
+				//Object value=valM==null?null:valM.get();
+				value=value==null?def:("'"+value+"'");
+				 qry+=(count==0?"":",")+fld+"="+value;
+				 ChangeLog.logField(fld, value);
+				 count++;
+			}
+			
+			int updates=dt.executeUpdate(qry+ " where "+where );
+			System.out.println("updates "+updates);
+		//	dt.sync();
+			System.out.println(" Debug update sql "+qry);
+			
+		}
+		else{
+			String s="insert into "+table;
+			String flds="";
+			String values="";
+			int count=0;
+			for(int j=0;j< dt.getNumAttributes();j++)
+			{
+				String fld=dt.getAttribName(j);
+				if(fld.equals("id"))
+					continue;
+				System.out.println(" DEBUG column "+dt.getMetaData().getColumnType(j+1)+" "+fld);
+				int colType=dt.getMetaData().getColumnType(j+1);
+				String def=(colType==4)?"0":null;
+				String value=(String)dataM.get("@"+fld);
+				flds+=(count!=0?",":"")+fld;
+				value=value==null?def:("'"+value+"'");
+				values+=(count!=0?",":"")+(value);
+				ChangeLog.logField(fld, value);
+				count++;
+			}
+			s+="("+flds+") VALUES("+values+")";
+			
+			System.out.println(" Debug sql "+s);
+			
+			
+		PreparedStatement ps=	dt.getTable().getPreparedStatement(s);
+		ps.execute();
+		ps.close();
+		dt.getTable().releasePreparedStatement(ps);
+	
+		}	
+		
+		ChangeLog.endLog();
+		
+	}
+	
+	public  XModel getHouseholds(String area,String house, XModel houseM) throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("households","household","enum_area="+area+ " and house="+house,"test",false);
+		dt.retrieve();
+	//	CachedDatabaseTable dt1=dt.getTable();
+		System.out.println(dt.getNumChildren());
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+			//areaM.append(dt.getValue(i));
+		String id=dt.get(i).get("household").toString();
+		XModel tt=(XModel)houseM.get(id);
+		//	dt.get(i).setId(dt.get(i).get("houseno").toString());
+		tt.setId(dt.get(i).get("household").toString());
+			XModel xm=getHouseholddetails(id,house,area);
+			xm.append(getDataM("data", "visitHistory", area, house, id, null));
+			//dt.get(i).append(xm);
+			tt=getIndividuals(area,house,tt.getId(),tt);
+			tt.append(xm);
+			
+			tt.append(getDataM("data", "characteristics", area, house, id, null));
+		//	areaM.append(dt.get(i));
+		}
+		
+		//dt1.dump(new FileWriter("c:\\testfetch1.xml"));
+		return houseM;
+		
+	}
+	public  XModel getHouseholddetails(String household,String house,String area, XModel xm)
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		String sql="select a.*,a.head headcode,b.name  headname from households a left join members b on a.enum_area=b.enum_area and a.house=b.house and a.household=b.household and a.head=b.idc";
+		//dt.setupTable("households","*","enum_area="+area+" and house="+house+" and household="+household,"test",true);
+		dt.setSqlStatement(sql+" where a.enum_area='"+area+"' and a.house='"+house+"' and a.household='"+household+"'","test",true);
+		dt.setName("updatestatus");
+		dt.setId("updatestatus");
+		dt.setTagName("data");
+		dt.retrieve();
+		//XBaseModel xm= new XBaseModel();
+		//xm.setId("updatestatus");
+	//	x
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+		//	dt.get(i).setTagName("data");
+			for(int j=0;j<dt.getNumAttributes();j++)
+			{
+				
+				XModel tt=(XModel)xm.get(dt.getAttribName(j));
+				tt.set(dt.get(i).get(j).get());
+				
+			}
+			
+		}
+		
+		
+		
+		return xm;
+		
+	}
+	public  XModel getHouseholddetails(String household,String house,String area)
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		String sql="select a.*,a.head headcode,b.name  headname from households a left join members b on a.enum_area=b.enum_area and a.house=b.house and a.household=b.household and a.head=b.idc";
+		//dt.setupTable("households","*","enum_area="+area+" and house="+house+" and household="+household,"test",true);
+		dt.setSqlStatement(sql+" where a.enum_area='"+area+"' and a.house='"+house+"' and a.household='"+household+"'","test",true);
+		dt.setName("updatestatus");
+		dt.setId("updatestatus");
+		dt.setTagName("data");
+		dt.retrieve();
+		XBaseModel xm= new XBaseModel();
+		xm.setId("updatestatus");
+	//	x
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+		//	dt.get(i).setTagName("data");
+			for(int j=0;j<dt.getNumAttributes();j++)
+			{
+				
+				XModel tt=(XModel)xm.get(dt.getAttribName(j));
+				tt.set(dt.get(i).get(j).get());
+				
+			}
+			
+		}
+		
+		
+		
+		return xm;
+		
+	}
+	public  String getMaxIndivId(String area,String house,String household) throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("members","max(idc) idc","enum_area="+area+ " and house="+house+" and household="+household,"test",false);
+		dt.retrieve();
+	//	CachedDatabaseTable dt1=dt.getTable();
+		System.out.println(" Individuals "+dt.getNumChildren()+" "+household);
+		
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+			//areaM.append(dt.getValue(i));
+			System.out.println(dt.get(i).get(0));
+		String id=dt.get(i).get("idc").toString();
+		return id;
+		}
+		
+		//dt1.dump(new FileWriter("c:\\testfetch1.xml"));
+		return "0";
+		
+	}
+	public  String getMaxHouseId(String area,String surveyorId) throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("houses","max(houseno) houseno","enum_area="+area+" and houseno like '"+surveyorId+"%'","test",false);
+		dt.retrieve();
+	//	CachedDatabaseTable dt1=dt.getTable();
+		//System.out.println(" Individuals "+dt.getNumChildren()+" "+household);
+		
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+			//areaM.append(dt.getValue(i));
+			System.out.println(dt.get(i).get(0));
+		String id=dt.get(i).get("houseno").toString();
+		return id;
+		}
+		
+		//dt1.dump(new FileWriter("c:\\testfetch1.xml"));
+		return null;
+		
+	}
+	public  String getMaxHouseholdId(String area,String house) throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("households","max(household) household","enum_area="+area+" and house = '"+house+"'","test",false);
+		dt.retrieve();
+	//	CachedDatabaseTable dt1=dt.getTable();
+		//System.out.println(" Individuals "+dt.getNumChildren()+" "+household);
+		
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+			//areaM.append(dt.getValue(i));
+			System.out.println(dt.get(i).get(0));
+		String id=dt.get(i).get("household").toString();
+		return id;
+		}
+		
+		//dt1.dump(new FileWriter("c:\\testfetch1.xml"));
+		return null;
+		
+	}
+	
+	public  XModel getIndividuals(String area,String house,String household, XModel hhM) throws Exception
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("members","idc","enum_area="+area+ " and house="+house+" and household="+household,"test",false);
+		dt.retrieve();
+	//	CachedDatabaseTable dt1=dt.getTable();
+		System.out.println(" Individuals "+dt.getNumChildren()+" "+household);
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+			//areaM.append(dt.getValue(i));
+		String id=dt.get(i).get("idc").toString();
+		XModel tt=(XModel)hhM.get(id);
+		//	dt.get(i).setId(dt.get(i).get("houseno").toString());
+		tt.setId(dt.get(i).get("idc").toString());
+			XModel xm=getIndividualdetails(id,household,house,area);
+			//dt.get(i).append(xm);
+			tt.append(xm);
+			tt.append(getDataM("data", "interview", area, house, household, id));
+		//	areaM.append(dt.get(i));
+		}
+		
+		//dt1.dump(new FileWriter("c:\\testfetch1.xml"));
+		return hhM;
+		
+	}
+	public  XModel getIndividualdetails(String individual,String household,String house,String area)
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("members","*","enum_area="+area+" and house="+house+" and household="+household+" and idc="+individual,"test",true);
+		dt.setName("updatestatus");
+		dt.setId("updatestatus");
+		dt.setTagName("data");
+		dt.retrieve();
+		XBaseModel xm= new XBaseModel();
+		xm.setId("updatestatus");
+	//	x
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+		//	dt.get(i).setTagName("data");
+			for(int j=0;j<dt.getNumAttributes();j++)
+			{
+				
+				XModel tt=(XModel)xm.get(dt.getAttribName(j));
+				tt.set(dt.get(i).get(j).get());
+				
+			}
+			
+		}
+		
+		
+		
+		return xm;
+		
+	}
+	public  XModel getInterview(String individual,String household,String house,String area,XModel xm)
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("barshi_interview","*","enum_area="+area+" and house="+house+" and household="+household+" and idc="+individual,"test",true);
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		dt.retrieve();	
+		
+		//XBaseModel xm= new XBaseModel();
+		xm.setId("interview");
+		if(dt.getNumChildren()==0)
+		{
+			getProto("barshi_interview",xm);
+			xm.set("enum_area",area);
+			xm.set("house",house);
+			xm.set("household",household);
+			xm.set("idc",individual);
+			return xm;
+		}
+		getDetails(dt,xm);
+		
+		return xm;
+		
+	}
+	
+	
+	public  XModel getCC(String household,String house,String area,XModel xm)
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable("barshi_cc","*","enum_area="+area+" and house="+house+" and household="+household+"","test",true);
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		dt.retrieve();	
+		
+		//XBaseModel xm= new XBaseModel();
+		xm.setId("characterstics");
+		if(dt.getNumChildren()==0)
+		{
+			getProto("barshi_cc",xm);
+			xm.set("enum_area",area);
+			xm.set("house",house);
+			xm.set("household",household);
+		//	xm.set("idc",individual);
+			return xm;
+		}
+		getDetails(dt,xm);
+		
+		return xm;
+		
+	}
+	
+	
+	/**
+	 * This method is used to get the record from the table madel and store the date to xmodel.
+	 * @param dt
+	 * 			name of the table model.
+	 * @param xm
+	 * 			name of the xmodel.
+	 */
+	
+	public  void getDetails(DatabaseTableModel dt,XModel xm)
+	{
+		for(int i=0;i<dt.getNumChildren();i++)
+		{
+			for(int j=0;j<dt.getNumAttributes();j++)
+			{
+				
+				XModel tt=(XModel)xm.get(dt.getAttribName(j));
+				tt.set(dt.get(i).get(j).get());
+				
+			}
+			
+		}
+		
+		
+	}
+	
+	/**
+	 * This method is used to get the attribute from the table and store it in xmodel.
+	 * @param table
+	 * 			name of the table.
+	 * @param dataM
+	 * 			name of the xmodel.
+	 */
+	
+	public  void  getProto(String table,XModel dataM) 
+	{
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable(table,"*","test" ,true);
+		for(int i=0;i<dt.getNumAttributes();i++)
+		{
+		dataM.get(dt.getAttribName(i));
+		}
+
+		
+	}
+	public static String driver="com.mysql.jdbc.Driver";
+	
+	public static String user="root";
+	public  static String  passwd="";
+	public static  String confStatus="error";
+	public static String imagePath="";
+	public static String dwdb="";
+	static {
+		try{
+			String url="jdbc:mysql://localhost:3306/vatest";
+			
+			try{
+			Properties p=new Properties();
+			p.load(TestXUIDB.class.getResourceAsStream("db.properties"));
+			//InputStream in=TestXUIDB.class.getResourceAsStream("db.xml");
+				
+			driver=p.getProperty("driver",driver);
+			url=p.getProperty("dburl");
+			user=p.getProperty("user");
+			passwd=p.getProperty("passwd");
+			imagePath=p.getProperty("imagePath");
+			dwdb=p.getProperty("dwdb");
+			confStatus="ok";
+		
+			}
+			catch(Exception e)
+			{
+				
+				e.printStackTrace();
+			}
+NamedConnectionManager nc=(NamedConnectionManager)NamedConnectionManager.getInstance();
+		
+		//nc.addConnection("test", "com.mysql.jdbc.Driver", url, user, passwd);
+System.out.println(" >> Driver" +driver);
+Class.forName(driver);
+		nc.addConnection("test", driver, url, user, passwd);
+		//nc.addConnection("test", "org.sqlite.JDBC", url, user, "");
+		//Class.forName("org.sqlite.JDBC");
+	   // Connection conn =
+	     // DriverManager.getConnection("jdbc:sqlite:test.db");
+
+		ConnectionObject co=nc.getConnection("test");
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+	}
+	public  void init()
+	{
+		/*System.out.println(" Data base init called");
+		
+		
+		
+		
+		AccessController.doPrivileged(new PrivilegedAction() {
+            public Object run() {
+            	
+            	try{String url="jdbc:mysql://localhost:3306/vatest";
+            	try{
+            		Properties p=new Properties();
+            		p.load(TestXUIDB.class.getResourceAsStream("db.properties"));
+            		driver=p.getProperty("driver",driver);
+            		System.out.println(" >> Driver0" +driver);
+            		url=p.getProperty("dburl");
+            		user=p.getProperty("user");
+            		passwd=p.getProperty("passwd");
+            		confStatus="ok";
+            		//NamedConnectionManager.
+            		}
+            		catch(Exception e)
+            		{
+            			
+            			e.printStackTrace();
+            		}
+            		System.out.println(" >> Driver" +driver);
+            		Class.forName(driver);
+                // privileged code goes here, for example:
+            	NamedConnectionManager nc=(NamedConnectionManager)NamedConnectionManager.getInstance();
+            	
+            	//nc.addConnection("test", "com.mysql.jdbc.Driver", url, user, passwd);
+
+            	nc.addConnection("test", driver, url, user, passwd);
+            	//nc.addConnection("test", "org.sqlite.JDBC", url, user, "");
+            	//Class.forName("org.sqlite.JDBC");
+               // Connection conn =
+                 // DriverManager.getConnection("jdbc:sqlite:test.db");
+
+            	ConnectionObject co=nc.getConnection("test");
+                return null; // nothing to return
+            	}	catch(Exception e1)
+            	{
+            		e1.printStackTrace();
+            	}
+            	return null;
+            }
+
+
+	});*/
+		
+		
+		
+	}
+	
+	public  void test1 (String args[]) throws Exception
+	{
+		NamedConnectionManager nc=(NamedConnectionManager)NamedConnectionManager.getInstance();
+		
+		nc.addConnection("test", "com.mysql.jdbc.Driver", "jdbc:mysql://localhost:3306/vatest", "root", "password");
+		ConnectionObject co=nc.getConnection("test");
+		
+	//	DatabaseTableModel dt= new DatabaseTableModel();
+		//dt.setName("tt");
+		//dt.setSqlStatement("select * from houses", "test", true);
+		
+		/*DatabaseTableModel dt1= new DatabaseTableModel();
+		dt.setName("tt");
+		dt.setSqlStatement("select * from households ", "test", true);*/
+		//System.out.println(dt.getValue());
+		//dt.retrieve();
+	/*	for(int i=0; i<dt.getNumChildren();i++)
+		{
+			 System.out.println(dt.get(i).get("address1")+" "+dt.get(i).get("address2"));
+		}*/
+	/*	XModel tt=dt.getValue(0);
+		 System.out.println(dt.get("address1"));
+		System.out.println(tt.get());
+		dt.setSelectedRow(4);
+		//dt.next();
+		 tt=dt.getValue(2);
+		 System.out.println(dt.get("address1"));
+		System.out.println(tt.get());*/
+		/*System.out.println(dt.hasMoreRows()+" "+dt.hasAutoId()+" "+dt.getNumChildren()+" "+dt.getNumAttributes()+" "+dt.getId()+" "+dt.getSelectedRow());*/
+		
+		//dt.set("test");
+		FileWriter fout= new FileWriter("c:\\testdbfetch.xml");
+		XModel out= new XBaseModel();
+		XModel taskM=(XModel)out;
+		getTasks(taskM,"12","");
+		XModel dataM=(XModel)out.get("survey/surveydata");
+	
+		dataM =getAreas("12",dataM,"2");
+	//	out.setId("13");
+		XModel areaM= dataM.get(0);
+	areaM=	getHouses("13",areaM);
+		
+		String house=areaM.get(1).getId();
+		System.out.println(house);
+		XModel houseM=areaM.get(1);
+		houseM=getHouseholds("13",house,houseM);
+		
+		XDataSource.outputModel(fout, out);
+		
+		/*XModel houseMtest1=new XBaseModel();
+		getProto("houses",houseMtest1);
+		houseMtest1.setId("updatestatus");
+		houseMtest1.set("houseno","99999");
+		houseMtest1.set("enum_area","99");
+		houseMtest1.set("address1","test345");
+		houseMtest1.set("address2","test345");
+		saveData("houses","houseno=99999",houseMtest1);
+		*/
+		System.out.println("Complete");
+		
+	}
+	
+public   	String getTaskPath(String path)
+	{
+		return join(split("task0-1/task1-2/task3-3","-",0));
+	}
+	public  String join(Vector v)
+	{
+		String t="";
+		for (int i=0;i<v.size();i++)
+		{
+			t+=(i==0?"":"/")+v.get(i).toString();
+			
+		}
+		return t;
+	}
+	
+	public  void testImport(String file) throws Exception
+	{
+		FileInputStream fin= new FileInputStream(file);
+		DataInputStream din= new DataInputStream(fin);
+		String line="";
+		StringBuffer logs=new StringBuffer();
+		while (line!=null)
+		{
+			line=din.readLine();
+			logs.append(line+"\r\n");
+			
+		}
+		System.out.println(logs);
+		importChangeLogs(logs.toString());
+	}
+	
+	public static  void main(String [] args) throws Exception
+	
+	{
+//		System.out.println(TestXUIDB.getInstance().getProperty("dwdb"));
+//		System.in.read();
+		//TestXUIDB.getInstance().updateCODReport("9", "10", " ", "09100250_01_02");
+		//System.in.read();
+//		TestXUIDB.getInstance().getAllPhysicians(new XBaseModel());
+//		System.in.read();
+//		TestXUIDB.getInstance().getWorkLoad("(task LIKE '%task0/%' OR task IS NULL) and (b.status is null or b.status != 1) and coder=1 and languages like '%hindi%'  ", "a.id", new XBaseModel());
+//		TestXUIDB.getInstance().getPhysiciansWithLessWorkload("english", "coder=1", new XBaseModel());
+//		XBaseModel xm=new XBaseModel();
+//		TestXUIDB.getInstance().getDiffDiagnosis("A09", xm);
+		System.out.println("icd description:"+TestXUIDB.getInstance().getICDDesc("A100"));
+//		System.in.read();
+//		TestXUIDB.getInstance().getWorkLoad("(b.status is null or status != 1) and coder=1 and languages like '%english%'  ","a.id", new XBaseModel());
+//		System.out.println(TestXUIDB.getInstance().isPhysicianAway("Sagar", "2011-1-21"));
+//		System.out.println(TestXUIDB.getInstance().updateAwayDate("Sagar", new Date("01/22/2011")));
+//		System.in.read();
+//		//	Validations v=new Validations();
+//	System.out.println(TestXUIDB.getInstance().isValidIcdAge("0.769", "C50"));
+//	System.out.println(TestXUIDB.getInstance().isValidIcdSex("Male", "O34"));
+//		System.out.println(TestXUIDB.getInstance().checkEquivalence("A40", "A41"));
+//	
+//		Vector keys=new Vector();
+//		keys.add("household");
+		
+		
+		//testImport("e:/cmeuser1/CME/admin-2010-09-19-10-18-57-312-received.xml");
+	//TestXUIDB.createChangeLog("members", "household='1600101'",keys)	;
+//	System.in.read();
+		
+	//	System.out.println(getMaxIndivId("13", "16001", "1600101"));
+		//TestXUIDB.getSearch("AMI", xm);
+//		System.out.println(xm.getNumChildren()+" "+xm.get(0).getId());
+		
+		
+		/*xm.setId("cme");
+		xm.set("");
+		xm.set("comments/1/x","4");
+		xm.set("comments/1/y","3");
+		TestXUIDB.saveTree(xm, "keyvalue", "");*/
+		//readTree(xm,"keyvalue","/cme");
+	//	System.out.println(xm.getNumChildren()+" "+xm.get(0).getId()+" "+((XModel)xm.get("comments")).getNumChildren());;
+	//Process p=	TestXUIDB.getProcess(1);
+	//p.states.transition();
+	//((CMEStateMachine)(p.states)).currentState="assignment";
+	//((CMEStateMachine)(p.states)).matchingResult=true;
+		//TestXUIDB.saveProcess(p);
+			//TestXUIDB.getProcess(1);
+	//	TestXUIDB.saveTask1("/task0/task0", null, null, null, null, new XBaseModel());
+		/*System.out.println(split("task0-1/task1-2/task3-3","-",0));
+		System.out.println(split("task0-1/task1-2/task3-3","-",1));
+		XModel root= new XBaseModel();
+		XModel test= (XModel)root.get("survey/healthcheckup/tasks/task0-1/task1-2/task3-3");
+		System.out.println(getTaskPath(getPath(test,(XModel)root.get("survey/healthcheckup/tasks"))));*/
+		
+		/*XDataModel xm= new XDataModel();
+		xm.setId("test");
+		xm.set("test");
+		xm.set("@area","13");
+		xm.set("@house","16001");
+		xm.set("@household","1600101");
+		xm.set("@member","1600101001");
+		saveInterview1(xm);
+		xm.set("test1");
+		saveInterview1(xm);
+		XDataModel xt= new XDataModel();*/
+	/*	XDataModel xt=TestXUIDB.getDataM("data", "interview",  "13", "16001", "1600101", "1600101001");
+		System.out.println(xt.get());
+		XDataModel xtc=(XDataModel)xt.get("bp1/systolic");
+		xtc.set("123");*/
+		//TestXUIDB.createMessage();
+//		String str="<l id='Tue Apr 13 17:26:00 IST 2010'>" +
+//				"		<dt id='dt' table='data' key=\"name='cookingPlace' and area = '22' and house = '16048' and household = '1604801' and member is null\">" +
+//				"		<d id='data' area='22' house='16048' household='1604801'  name='cookingPlace' value=' Choose Any One' /></dt>" +
+//				"</l>";
+		//TestXUIDB.importChangeLog(str);
+	//TestXUIDB.sendLogs("12","14");
+		//TestXUIDB.authenticateUser("", "");
+		//System.out.println(TestXUIDB.getLastChangeLog());
+		
+		//XBaseModel xm= new XBaseModel();
+		//xm.set("area","test");
+		//xm.set("surveyor","test");
+		//xm.set("date","2010-01-01");
+//		TestXUIDB.saveConflictData("data_conflicts", "", xm);
+		
+		
+	}
+	
+	
+	
+	public  void saveLogistics(XModel xm)throws Exception
+	{
+		xm.set("@name",xm.getId());
+		Object path=xm.get("@path");
+		String where="name='"+xm.getId()+"'";
+		where+=" and path='"+path+"'";
+		saveDataM("logistics",where,xm);
+	}
+	
+	/**
+	 * This method is used to date to in the form of tree.
+	 * @param root
+	 * 			root xmodel
+	 * @param table
+	 * 			name of the table.
+	 * @param parentPath
+	 * 			path of the parent.
+	 * @throws Exception
+	 */
+	
+	public  void saveTree(XModel root,String table,String parentPath)throws Exception
+	{
+		String key=parentPath+"/"+root.getId();
+		String value=(String)root.get();
+		if(value!=null)
+			saveKeyValue( table,key, value);
+		
+		for(int i=0;i<root.getNumChildren();i++)
+		{
+			saveTree(root.get(i),table,key);
+		}
+	}
+	
+	/**
+	 * This method is used to delete the record in keyvalue table based on the key.
+	 * @param table
+	 * 			name of the table.
+	 * @param key
+	 * 			key which has to be deleted.
+	 * @throws Exception
+	 */
+	
+	public  void deleteKeyValue(String table,String key)throws Exception
+	{
+		
+	//	String where="name='"+xm.getId()+"'";
+		String where=" key1='"+key+"'";
+		DatabaseTableModel dt= new DatabaseTableModel();
+		dt.setupTable(table,"*",where,"test",true);
+		//dt.retrieve();
+		//if(dt.getNumChildren()>0)
+		{
+		ChangeLog.startLog(table,"delete",where,getCurrentUser());
+		
+		String qry ="delete from "+table+" where "+where;
+		PreparedStatement ps=	dt.getTable().getPreparedStatement(qry);
+		ps.execute();
+		//dt.getTable().releasePreparedStatement(ps);
+		ChangeLog.endLog();
+		}
+	}
+	
+	/**
+	 * This method is used to store the record to the keyvalue.
+	 * @param table
+	 * 			name of the table.
+	 * @param key
+	 * 			name of the key.
+	 * @param value
+	 * 			value of the key.
+	 * @throws Exception
+	 */
+	
+	public  void saveKeyValue(String table,String key, String value)throws Exception
+	{
+		
+		if(key==null|| key.equals(""))
+		{
+			System.out.println("Error :Key is null");
+			return;
+		}
+	//	String where="name='"+xm.getId()+"'";
+		String where=" key1='"+key+"'";
+		DatabaseTableModel dt= new DatabaseTableModel();
+		
+		ChangeLog.startLog(table,where,getCurrentUser());
+		
+			
+			
+			dt.setupTable(table,"*",where,"test",true);
+			//dt.setName("updatestatus");
+			//dt.setId("updatestatus");
+			//dt.setTagName("data");
+			dt.retrieve();
+			if(dt.getNumChildren()>0)
+			{
+				System.out.println(" total "+dt.getNumChildren());
+				//dt.first();
+				String qry ="update "+table+" set value1='"+value+"'";
+				int count=0;
+				System.out.println("Query is "+qry);
+				ChangeLog.logField("value1", value);
+				int updates=dt.executeUpdate(qry+ " where "+where );
+				System.out.println("updates "+updates);
+				
+			}
+			else{
+				String s="insert into "+table;
+				String flds="key1,value1";
+				String values="'"+key+"','"+value+"'";
+				int count=0;
+				ChangeLog.logField("key1", key);
+				ChangeLog.logField("value1", value);
+				s+="("+flds+") VALUES("+values+")";
+				
+				System.out.println(" Debug sql "+s);
+				
+				
+			PreparedStatement ps=	dt.getTable().getPreparedStatement(s);
+			ps.execute();
+			dt.getTable().releasePreparedStatement(ps);
+			}
+			ChangeLog.endLog();
+	}
+	
+	/**
+	 * This method is used to read the value from the tree.
+	 * @param root
+	 * 			root of the tree.
+	 * @param table
+	 * 			name of the table.
+	 * @param path
+	 * 			path where the value is stored.
+	 */
+	
+	public  void readTree(XModel root, String table,String path)
+	{
+		//KenList kl= new KenList(parentPath);
+		//kl.get(kl.size()-1);
+	//	root.set(getValue(table,path));
+		getKeyValues(root,"keyvalue",path);
+		
+		
+		
+	}
+	
+	/**
+	 * This method is used to get the values from the keyvalue and stored it in xmodel.
+	 * @param xm
+	 * 			name of the xmodel 
+	 * @param table
+	 * 			name of the table.
+	 * @param parentPath
+	 * 			specify the parent path.
+	 * 
+	 * @return
+	 */
+	
+	public   String  getKeyValues(XModel xm,String table,String parentPath)
+	{
+		String where=" key1 like '"+parentPath+"/%' ";
+		DatabaseTableModel dt= new DatabaseTableModel();
+		
+		dt.setupTable(table,"*",where,"test",false);
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		dt.retrieve();
+		String keyFld="key1";
+		String valFld="value1";
+		System.out.println("---"+table+"   "+where+" "+dt.getNumChildren());
+		if(dt.getNumChildren()>0)
+		{
+			
+	/*		for(int j=0; j<dt.getNumAttributes();j++)
+			{
+				String attrib=dt.getAttribName(j);
+				String attrib1=attrib.toLowerCase();
+				if(attrib1.equals("key1"))
+						{
+							keyFld=attrib;
+						}
+				if(attrib1.equals("value1"))
+				{
+					valFld=attrib;
+				}
+				
+				
+			}*/
+			for(int i=0; i<dt.getNumChildren();i++)
+			{
+			
+			
+				String key=dt.get(i).get(keyFld).toString();
+				String value=dt.get(i).get(valFld).toString();
+				
+				KenList kl =new KenList(key);
+				KenList k2= new KenList(parentPath);
+				String path1=kl.subset(k2.size(),kl.size()-1).toString();
+				System.out.println("keyy====::"+key);
+				System.out.println("valuepath====::"+path1);
+				System.out.println("Value of key ====::"+value);
+				System.out.println(key+" "+parentPath+" "+path1);
+				xm.set(path1,value);
+								
+			}
+			
+		}
+		return null;
+	}
+	
+	/**
+	 * This method is used to get the value of the table based on the key.
+	 * @param table
+	 * 			name of the table.
+	 * @param key
+	 * 			key for which the value retreive.
+	 * @return
+	 * 		value of the key
+	 */
+	
+	public  String  getValue(String table,String key)
+	{
+		String where=" key1='"+key+"'";
+		DatabaseTableModel dt= new DatabaseTableModel();
+		
+		dt.setupTable(table,"*",where,"test",true);
+		//dt.setName("updatestatus");
+		//dt.setId("updatestatus");
+		//dt.setTagName("data");
+		dt.retrieve();
+		if(dt.getNumChildren()>0)
+		{
+			for(int j=0;j<dt.getNumAttributes();j++)
+			{
+				String attrib=dt.getAttribName(j);
+				String attrib1=attrib.toLowerCase();
+			
+				if(attrib1.equals("value1"))
+					return dt.get(0).get(attrib).toString();
+				
+			
+			}
+			return dt.get(0).get("value1").toString();
+		}
+		return null;
+	}
+	public  void saveInterview1(XModel xm)throws Exception
+	{
+		xm.set("@name",xm.getId());
+		Object area=xm.get("@area");
+		Object house=xm.get("@house");
+		Object household=xm.get("@household");
+		Object member=xm.get("@member");
+		String where="name='"+xm.getId()+"'";
+		where+=" and "+(area==null?"area is null":"area = '"+area+"'");
+		where+=" and "+(house==null?"house is null":"house = '"+house+"'");
+		where+=" and "+(household==null?"household is null":"household = '"+household+"'");
+		where+=" and "+(member==null?"member is null":"member = '"+member+"'");
+		saveDataM("data",where,xm);
+	}
+	public  void saveHouse(String area,String id,XModel houseM) throws Exception
+	{saveData("houses","enum_area='"+area+"' and houseno='"+id+"'",houseM);
+		
+	}
+	
+	public  void saveHouseHold(String area,String house, String id,XModel hhM) throws Exception
+	{saveData("households","enum_area='"+area+"' and  house='"+house+"' and household='"+id+"'",hhM);
+		
+	}
+	
+	public  void saveMember(String area,String house, String hh,String id,XModel indvM) throws Exception
+	{saveData("members","enum_area='"+area+"' and house='"+house+"' and household='"+hh+"' and idc='"+id+"'",indvM);
+		
+	}
+	
+	public  void saveVisitInfo(String area,String house, String hh,String idc,String team,String doneBy ,XModel visitM) throws Exception
+	{
+		
+		saveData("members","area='"+area+"' and houseno='"+house+"' and  householdno='"+hh+"' and idc='"+idc+"' and team="+team+" and doneby="+doneBy,visitM);
+		
+	}
+	public  void saveInterview(String area,String house, String hh,String idc,XModel interviewM) throws Exception
+	{saveData("barshi_interview","enum_area='"+area+"' and house='"+house+"' and household='"+hh+"' and idc='"+idc+"'",interviewM);
+		
+	}
+	public  void saveResponse(String area,String house, String hh,String idc,XModel interviewM) throws Exception
+	{
+		saveData("responsedetails","area='"+area+"' and house='"+house+"' householdno='"+hh+"' idc='"+idc+"'",interviewM);
+		
+	}
+	public  void saveCommon(String area,String house, String hh,XModel ccM) throws Exception
+	{saveData("barshi_cc","enum_area='"+area+"' and house='"+house+"' and household='"+hh+"' ",ccM);
+		
+	}
+	public  void saveTask2(String taskPath,String surveyType,String area ,String house,String hh, String individual,XModel taskM) throws Exception
+	{
+		String table="tasks";
+		
+		String where="task='"+taskPath+"' and area="+area+" and house='"+house+"' and household='"+hh+"' and member='"+individual+"' and survey_type='"+surveyType+"' and status != 1";
+	
+		XModel dataM=taskM;
+		
+	//	TestXUIDB.saveData1(table, where, dataM);
+	}
+	
+	public  void save(XModel xM,String area, String house, String hh, String idc) throws Exception
+	{
+		
+	System.out.println("/*********** Save Called "+xM.getId()+"***/");
+		if(xM.getId().equals("characterstics"))
+		{
+			saveCommon(area, house, hh,  xM);
+		}
+		if(xM.getId().equals("interview"))
+		{
+			saveInterview(area, house, hh, idc, xM);
+		}
+		if(xM.getId().equals("responsedetails"))
+		{
+			//TestXUIDB.saveCommon(area, house, hh, idc, xM);
+		}
+		
+	}
+	
+	public  void get(XModel xM,String area, String house, String hh, String idc) throws Exception
+	{
+		//StringTokenizer st= new StringTokenizer
+	System.out.println("/*********** Save Called "+xM.getId()+"***/");
+		if(xM.getId().equals("characterstics"))
+		{
+			xM=getCC(hh, house, area,xM);
+		}
+		if(xM.getId().equals("interview"))
+		{
+			xM=getInterview(idc, hh, house, area,xM);//saveInterview(area, house, hh, idc, xM);
+		}
+		if(xM.getId().equals("responsedetails"))
+		{
+			//TestXUIDB.saveCommon(area, house, hh, idc, xM);
+		}
+		
+	}
+	
+	public  XModel get1(String path,String area, String house, String hh, String idc) throws Exception
+	{
+		
+		StringTokenizer st= new StringTokenizer(path,"/");
+		String name=path;
+		
+		while(st.hasMoreTokens())
+		{
+		name=st.nextToken();
+		}
+	System.out.println("/*********** Get Called "+name+"***/");
+	XDataModel xM=getDataM("data", name, area, house, hh, idc);
+	return xM;
+		/*if(tmp.equals("characterstics"))
+		{
+			//getCC(hh, house, area,xM);
+		}
+		if(xM.getId().equals("interview"))
+		{
+			xM=TestXUIDB.getInterview(idc, hh, house, area,xM);//saveInterview(area, house, hh, idc, xM);
+		}
+		if(xM.getId().equals("responsedetails"))
+		{
+			//TestXUIDB.saveCommon(area, house, hh, idc, xM);
+		}*/
+		
+	}
+	
+	/**
+	 * This method is used to authenticate the user based on username and password 
+	 * @param user
+	 * 			user name of the user
+	 * @param passwd
+	 * 			password of the user.
+	 */
+	
+	public  void authenticateUser(String user , String passwd)
+	{
+		DatabaseTableModel dtm= DatabaseTableModel.getTable("team");
+		///dtm.setName("user");
+		
+		dtm.first();
+		
+	}
+	
+	/**
+	 * This method is used to authorise user based on the roles of the user.
+	 * @param roles
+	 * 			roles of the user.
+	 */
+	
+	public  void authoriseUser(String roles)
+	{
+		DatabaseTableModel dtm= DatabaseTableModel.getTable("team");
+		///dtm.setName("user");
+		
+		dtm.first();
+		
+	}
+	
+	/**
+	 * This method is used to check whether the physician is away on particular date or not.
+	 * @param id
+	 * 			id of the physician.
+	 * @param date
+	 * 			date which we have to check whether the physician is away or not.
+	 * @return
+	 * 		true if it is away otherwise false.
+	 */
+	
+	public boolean isPhysicianAway(String id,String date) {
+		DatabaseTableModel dt= new DatabaseTableModel();
+				
+				dt.setupTable("physician_away","*","physician='"+id+"' and away_date='"+date+"'","test",false);
+				dt.retrieve();	
+				System.out.println("No of Rows:"+dt.getNumChildren());
+				if(dt.getNumChildren()>0)
+						return true;
+				return false;
+			}
+	
+	/**
+	 * This method is used to check whether the user is physician or not.
+	 * @param username
+	 * 			name of the user
+	 * @param password
+	 * 			password of the user.
+	 * @return
+	 * 		true if the user is physician otherwise false.
+	 */
+	
+	public boolean isPhysician(String username,String password) {
+DatabaseTableModel dt= new DatabaseTableModel();
+		
+		dt.setupTable("accounts","*","username='"+username+"' and password='"+password+"'","test",false);
+		dt.retrieve();	
+		System.out.println("No of Rows:"+dt.getNumChildren());
+		if(dt.getNumChildren()>0)
+				return true;
+		return false;
+	}
+	
+	/**
+	 * This method is used to update the physician away date.
+	 * @param id
+	 * 			id of the physician
+	 * @param date
+	 * 			date which is to be updated.
+	 * @return
+	 * 			true if it is updated.
+	 * @throws Exception
+	 */
+	
+	public boolean updateAwayDate(String id, Date date) throws Exception {
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+DatabaseTableModel dt= new DatabaseTableModel();
+		
+		dt.setupTable("physician_away","*","physician='"+id+"'","test",false);
+		String sql = "insert into physician_away (physician, away_date) values ('"+id+"','"+sdf.format(date)+"')";
+		PreparedStatement ps=	dt.getTable().getPreparedStatement(sql);
+		ps.execute();
+		//dt.getTable().releasePreparedStatement(ps);
+		
+		return true;
+	}
+	
+	
+	/**
+	 * This method is used to add new physician.
+	 * @param username
+	 * 			username of the user.
+	 * @param name
+	 * 			name of the user.
+	 * @param languages
+	 * 			languages known by the user.
+	 * @param coder
+	 * 			specify user is coder or not.
+	 * @param adjudicator
+	 * 			specify user is adjucicator or not.
+	 * @param id
+	 * 			id of the user.
+	 * @throws Exception
+	 */
+	
+	public void createPhysician(String username, String name, String languages, String coder, String adjudicator, String id, String status) throws Exception {
+		
+		XModel xm=new XBaseModel();
+		//	TestXUIDB.getInstance().getKeyValues(xm, "keyvalue", path);
+	
+		XModel dataM=new XBaseModel();
+		dataM.setId(username);
+		((XModel)dataM.get("username")).set(username);
+		((XModel)dataM.get("name")).set(name);
+		((XModel)dataM.get("languages")).set(languages); 
+		((XModel)dataM.get("coder")).set(coder);
+		((XModel)dataM.get("adjudicator")).set(adjudicator);
+		((XModel)dataM.get("status")).set(status);
+		if(!id.equals("0")) {
+			((XModel)dataM.get("id")).set(id);
+		}
+		TestXUIDB.getInstance().saveData("physician", "username='"+username+"'", dataM);
+	}
+	
+	
+	/**
+	 * This method is used to add new user.
+	 * @param username
+	 * 			username of the user.
+	 * @param password
+	 * 			password of the user.
+	 * @param roles
+	 * 			roles of the user.
+	 * @throws Exception
+	 */
+	
+	public void createAccount(String username, String password, String roles) throws Exception {
+		
+		XModel xm=new XBaseModel();
+		//	TestXUIDB.getInstance().getKeyValues(xm, "keyvalue", path);
+	
+		XModel dataM=new XBaseModel();
+		dataM.setId(username);
+		((XModel)dataM.get("username")).set(username);
+		((XModel)dataM.get("password")).set(password);
+		((XModel)dataM.get("roles")).set(roles);
+		TestXUIDB.getInstance().saveData("accounts", "username='"+username+"'", dataM);
+	}
+	
+	/**
+	 * This method is used to check whether the physician is exit or not
+	 * @param username
+	 * 			username of the physician.
+	 * @return
+	 * 			true if exists otherwise false
+	 */
+	
+	public boolean physicianExists(String username) {
+		XModel xm = new XBaseModel();
+		DatabaseTableModel dt = new DatabaseTableModel();
+		dt.setupTable("physician", "*", "username='"+username+"'", "test", false);
+		dt.retrieve();
+		if(dt.getNumChildren()>0) {
+			return true;
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * This method is used to check whether the user is exit or not
+	 * @param username
+	 * 			username of the user.
+	 * @return
+	 * 			true if exists otherwise false
+	 */
+	
+	public boolean userExists(String username) {
+		XModel xm = new XBaseModel();
+		DatabaseTableModel dt = new DatabaseTableModel();
+		dt.setupTable("accounts", "*", "username='"+username+"'", "test", false);
+		dt.retrieve();
+		if(dt.getNumChildren()>0) {
+			return true;
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * This mehtod is used to get the workload of all the physician.
+	 * @param physician
+	 * 			name of the physician.
+	 * @param xm
+	 * 			store the retrieved value.
+	 * @return
+	 */
+	
+	public boolean getWorkLoad(String physician, XModel xm) {
+		DatabaseTableModel dt= new DatabaseTableModel();
+				workload = TestXUIDB.getInstance().getProperty("workload");
+//				String sql="SELECT "+groupBy + ",SUM(IF(task LIKE '%task0/%',1,0)) number ,IF(b.STATUS='1','Complete','In Process') STATUS,IF(task LIKE '%task0','Coding',IF(task LIKE '%task1','Reconciliation',IF(task LIKE '%task2','Adjudication',NULL))) stage, a.username FROM physician  a LEFT JOIN tasks b ON a.id=b.assignedTo and (task LIKE '%task0/%' OR task IS NULL)  WHERE "+where+" GROUP BY "+groupBy+" having count(*) < "+workload;
+				String sql="SELECT a.id,SUM(IF(task LIKE '%task0/%',1,0)) number ,IF(b.STATUS='1','Complete','In Process') STATUS,IF(task LIKE '%task0','Coding',IF(task LIKE '%task1','Reconciliation',IF(task LIKE '%task2','Adjudication',NULL))) stage, a.username FROM physician  a LEFT JOIN tasks b ON a.id=b.assignedTo AND (task LIKE '%task0/%' OR task IS NULL)  WHERE task LIKE '%task0/%' AND task IS NOT NULL AND a.id LIKE '"+physician+"' GROUP BY a.id,IF(b.STATUS='1','Complete','In Process'),IF(task LIKE '%task0','Coding',IF(task LIKE '%task1','Reconciliation',IF(task LIKE '%task2','Adjudication',NULL)))";
+				System.out.println("sql::"+sql);
+				
+				dt.setSqlStatement(sql, "test", false);
+				
+				dt.retrieve();	
+				System.out.println("No of Rows1:"+dt.getNumChildren());
+				if(dt.getNumChildren()>0)
+				{
+					for(int i =0; i <dt.getNumChildren();i++)
+					{
+						XModel row=(XModel)xm.get(""+i);
+						for(int j=0;j<dt.getNumAttributes();j++)
+					
+					{
+						((XModel)row.get(dt.getAttribName(j))).set(dt.get(i).get(j).get());
+						System.out.println(dt.getAttribName(j)+"="+dt.get(i).get(j).get());
+						
+					}
+					}
+				}
+						//return true;
+				return false;
+			}
+	
+	/**
+	 * This mehtod is used to get the physician with the less workload. 
+	 * @param language
+	 * 			language of the physician.
+	 * @param status
+	 * 			status of the physician.
+	 * @param xm
+	 * 			store the retrieved value.
+	 * @return
+	 */
+	
+	public boolean getPhysiciansWithLessWorkload(String language,String status, XModel xm) {
+		DatabaseTableModel dt= new DatabaseTableModel();
+		
+				workload = TestXUIDB.getInstance().getProperty("workload");
+//				String sql="SELECT "+groupBy + ",SUM(IF(task LIKE '%task0/%',1,0)) number ,IF(b.STATUS='1','Complete','In Process') STATUS,IF(task LIKE '%task0','Coding',IF(task LIKE '%task1','Reconciliation',IF(task LIKE '%task2','Adjudication',NULL))) stage, a.username FROM physician  a LEFT JOIN tasks b ON a.id=b.assignedTo and (task LIKE '%task0/%' OR task IS NULL)  WHERE "+where+" GROUP BY "+groupBy+" having count(*) < "+workload;
+				String sql="SELECT a.id,SUM(IF(task LIKE '%task0/%',1,0)) number ,IF(b.STATUS='1','Complete','In Process') STATUS,IF(task LIKE '%task0','Coding',IF(task LIKE '%task1','Reconciliation',IF(task LIKE '%task2','Adjudication',NULL))) stage, a.username FROM physician  a LEFT JOIN (SELECT * FROM tasks WHERE STATUS IS NULL) b ON a.id=b.assignedTo AND (task LIKE '%task0/%' OR task IS NULL)  WHERE a.id LIKE '%' AND b.STATUS IS NULL AND a.languages LIKE '%"+ language +"%' AND "+status+" GROUP BY a.id HAVING COUNT(*) < "+workload;
+				System.out.println("sql::"+sql);
+				
+				dt.setSqlStatement(sql, "test", false);
+				
+				dt.retrieve();	
+				System.out.println("No of Rows1:"+dt.getNumChildren());
+				if(dt.getNumChildren()>0)
+				{
+					for(int i =0; i <dt.getNumChildren();i++)
+					{
+						XModel row=(XModel)xm.get(""+i);
+						for(int j=0;j<dt.getNumAttributes();j++)
+					
+					{
+						((XModel)row.get(dt.getAttribName(j))).set(dt.get(i).get(j).get());
+						System.out.println(dt.getAttribName(j)+"="+dt.get(i).get(j).get());
+						
+					}
+					}
+				}
+						//return true;
+				return false;
+			}
+	
+	/**
+	 * This method is used to retrieve the data for the particular field in the table.
+	 * @param table
+	 * 			name of the table.
+	 * @param fields
+	 * 			name of the field.
+	 * @param where
+	 * 			condition of the field.
+	 * @param xm
+	 * 			store the retrieved value.
+	 * 
+	 * @return
+	 * 			false when no record.
+	 */
+	
+	public boolean getWorkLoad(String where,String groupBy, XModel xm) {
+		DatabaseTableModel dt= new DatabaseTableModel();
+				workload = TestXUIDB.getInstance().getProperty("workload");
+				String sql="SELECT "+groupBy + ",SUM(IF(task LIKE '%task0/%',1,0)) number ,IF(b.STATUS='1','Complete','In Process') STATUS,IF(task LIKE '%task0','Coding',IF(task LIKE '%task1','Reconciliation',IF(task LIKE '%task2','Adjudication',NULL))) stage, a.username FROM physician  a LEFT JOIN tasks b ON a.id=b.assignedTo and (task LIKE '%task0/%' OR task IS NULL)  WHERE "+where+" GROUP BY "+groupBy+" having count(*) < "+workload;
+				System.out.println("sql::"+sql);
+				
+				dt.setSqlStatement(sql, "test", false);
+				
+				dt.retrieve();	
+				System.out.println("No of Rows1:"+dt.getNumChildren());
+				if(dt.getNumChildren()>0)
+				{
+					for(int i =0; i <dt.getNumChildren();i++)
+					{
+						XModel row=(XModel)xm.get(""+i);
+						for(int j=0;j<dt.getNumAttributes();j++)
+					
+					{
+						((XModel)row.get(dt.getAttribName(j))).set(dt.get(i).get(j).get());
+						System.out.println(dt.getAttribName(j)+"="+dt.get(i).get(j).get());
+						
+					}
+					}
+				}
+						//return true;
+				return false;
+			}
+	public boolean getData(String table,String fields,String where, XModel xm) {
+		DatabaseTableModel dt= new DatabaseTableModel();
+				
+			
+				
+				//dt.setSqlStatement(sql, "test", false);
+				dt.setupTable(table,fields,where,"test",false);
+				dt.retrieve();	
+				System.out.println("No of Rows1:"+dt.getNumChildren());
+				if(dt.getNumChildren()>0)
+				{
+					for(int i =0; i <dt.getNumChildren();i++)
+					{
+						XModel row=(XModel)xm.get(""+i);
+						for(int j=0;j<dt.getNumAttributes();j++)
+					
+					{
+						((XModel)row.get(dt.getAttribName(j))).set(dt.get(i).get(j).get());
+						System.out.println(dt.getAttribName(j)+"="+dt.get(i).get(j).get());
+						
+					}
+					}
+				}
+						//return true;
+				return false;
+			}
+	
+	/**
+	 * This method is used to get the all physician details.
+	 * @param where
+	 * 			condition for the query
+	 * @param xm
+	 * 			store the retrieved value.
+	 * @return
+	 */
+	
+	public boolean getPhysicianDetails(String where,XModel xm) {
+		DatabaseTableModel dt= new DatabaseTableModel();
+		//String sql="SELECT COUNT(*) number ,IF(b.STATUS='1','Complete','In Process') STATUS,IF(task LIKE '%task0','Coding',IF(task LIKE '%task1','Reconciliation','Adjudication')) stage, a.username FROM physician  a LEFT JOIN tasks b ON a.id=b.assignedTo  WHERE task LIKE '%task0/%'  GROUP BY a.id,b.STATUS,task;";
+		//dt.setSqlStatement(sql, "test", false);
+		
+		dt.setupTable("physician","*",where,"test",false);
+		dt.retrieve();	
+		System.out.println("No of Rows:"+dt.getNumChildren());
+		if(dt.getNumChildren()>0)
+		{
+			for(int i =0; i <dt.getNumChildren();i++)
+			{
+				XModel row=(XModel)xm.get(""+i);
+				for(int j=0;j<dt.getNumAttributes();j++)
+
+				{
+					((XModel)row.get(dt.getAttribName(j))).set(dt.get(i).get(j).get());
+					System.out.println(dt.getAttribName(j)+"="+dt.get(i).get(j).get());
+
+				}
+			}
+		}
+		//return true;
+		return false;
+	}
+	
+	/**
+	 * This method is used to get the all user details.
+	 * @param where
+	 * 			condition for the query
+	 * @param xm
+	 * 			store the retrieved value.
+	 * @return
+	 */
+	
+	public boolean getAccountDetails(String where,XModel xm) {
+		DatabaseTableModel dt= new DatabaseTableModel();
+		//String sql="SELECT COUNT(*) number ,IF(b.STATUS='1','Complete','In Process') STATUS,IF(task LIKE '%task0','Coding',IF(task LIKE '%task1','Reconciliation','Adjudication')) stage, a.username FROM physician  a LEFT JOIN tasks b ON a.id=b.assignedTo  WHERE task LIKE '%task0/%'  GROUP BY a.id,b.STATUS,task;";
+		//dt.setSqlStatement(sql, "test", false);
+		dt.setupTable("accounts","*",where,"test",false);
+		dt.retrieve();	
+		System.out.println("No of Rows:"+dt.getNumChildren());
+		if(dt.getNumChildren()>0)
+		{
+			for(int i =0; i <dt.getNumChildren();i++)
+			{
+				XModel row=(XModel)xm.get(""+i);
+				for(int j=0;j<dt.getNumAttributes();j++)
+
+				{
+					((XModel)row.get(dt.getAttribName(j))).set(dt.get(i).get(j).get());
+					System.out.println(dt.getAttribName(j)+"="+dt.get(i).get(j).get());
+
+				}
+			}
+		}
+		//return true;
+		return false;
+	}
+	
+	/**
+	 * This method is used to get the all physician.
+	 * 
+	 * @param xm
+	 * 			store the retrieved value.
+	 * 
+	 */
+	
+	public void getAllPhysicians(XModel xm) {
+		DatabaseTableModel dt = new DatabaseTableModel();
+		dt.setupTable("physician", "name,id", null,"test", false);
+		dt.retrieve();
+		if (dt.getNumChildren() > 0) {
+			for (int i = 0; i < dt.getNumChildren(); i++) {
+				XModel row = (XModel) xm.get("" + i);
+				for (int j = 0; j < dt.getNumAttributes(); j++) {
+					((XModel) row.get(dt.getAttribName(j))).set(dt.get(i)
+							.get(j).get());
+					System.out.println(dt.getAttribName(j) + "="
+							+ dt.get(i).get(j).get());
+				}
+				
+			}
+		}
+	}
+	
+	public boolean removePhysician(int physicianId) {
+		DatabaseTableModel dt = new DatabaseTableModel();
+		dt.setupTable("physician", "status", "id="+physicianId,"test", true);
+		dt.retrieve();
+		int i=0;
+		String sql="update physician set status='inactive' where id="+physicianId;
+		System.out.println("Remove phy::"+sql);
+		try {
+			i=dt.executeUpdate(sql);
+			if(i>0)
+				return true;
+			
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		
+		
+		return false;
+	}
+	
+}

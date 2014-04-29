@@ -1,0 +1,22 @@
+<data id="db">
+<data id="enumeration">
+<data id="dburl" value="jdbc:mysql://localhost:3306/vatest"/>
+<data id="user" value="root"/>
+<data id="passwd" value="password"/>
+</data>
+<data id="cme">
+<data id="dburl" value="jdbc:mysql://localhost:3306/vatest"/>
+<data id="user" value="root"/>
+<data id="passwd" value="password"/>
+</data>
+<data id="va">
+<data id="dburl" value="jdbc:mysql://localhost:3306/vatest"/>
+<data id="user" value="root"/>
+<data id="passwd" value="password"/>
+</data>
+<data id="hc">
+<data id="dburl" value="jdbc:mysql://localhost:3306/vatest"/>
+<data id="user" value="root"/>
+<data id="passwd" value="password"/>
+</data>
+</data>

@@ -1,0 +1,313 @@
+package com.kentropy.process;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Date;
+import java.util.Observer;
+import java.util.Properties;
+import java.util.Queue;
+import java.util.Vector;
+
+import com.kentropy.agents.cme.AssignmentAgent;
+import com.kentropy.agents.cme.CompletionAgent;
+import com.kentropy.agents.cme.MatchingAgent;
+import com.kentropy.agents.cme.ReMatchingAgent;
+import com.kentropy.db.TestXUIDB;
+import com.sun.org.apache.xalan.internal.xsltc.runtime.Hashtable;
+
+/**
+ * Accomplishes Business Logic for the process. Methods in this class
+ * are used to accomplish abstracted Business Logic for process of the CME System.
+ * 
+ * @author Rajeev.K
+ * @author Sagar.P
+ * @author Navaneetha.K
+ * 
+ */
+
+public class Process  {
+
+	/**
+	 * @param args
+	 */
+	
+	
+	
+public	String pid="0";
+	public Date startTime=null;
+public	Date endTime=null;
+	public String status="NotStarted";
+	public  String stateMachineClass="com.kentropy.process.CMEStateMachine";
+	public static Vector agents= new Vector();
+	public static Hashtable agentsHt= new Hashtable();
+	public static Vector transitionQueue= new Vector();
+	public static Vector processInstances= new Vector();
+	public StateMachine states=null;
+	
+	public static void main(String[] args) throws Exception {
+		// TODO Auto-generated method stub
+	/*String[] reports={"01100009_01_01","01100009_01_02","01100009_01_03","01100012_01_02",
+		"01100013_01_01","01100015_01_02","01200001_01_01","01200001_01_02","01200005_01_01","01200008_01_01","01200008_01_02","01200012_01_01",
+		"01200013_01_01","01200013_01_02","03300118_01_01","03300118_01_03","03300118_01_04","03300119_01_01","03300119_01_02","03300119_01_03",
+		"03300184_01_01","03300184_01_02","03300184_01_03","03300184_01_04","03300184_01_05"};*/
+	String[] reports={"01100009_01_01","01100009_01_02","01100009_01_03","01100012_01_02",
+			"01100013_01_01","01100015_01_02",
+			"03300118_01_01","03300118_01_03","03300118_01_04","03300119_01_01","03300119_01_02","03300119_01_03",
+			"03300184_01_01","03300184_01_02","03300184_01_03","03300184_01_04"};
+	String[] reports1={"01100009_01_01"};
+
+		//addAgent(new AssignmentAgent());
+		//addAgent(new MatchingAgent());
+		//addAgent(new ReMatchingAgent());
+	
+		for(int i=0; i<reports.length;i++)
+		{
+		createProcess(reports[i]);
+		Process.processTransitions();
+		}
+		
+	//	System.in.read();
+		System.out.println("Status:"+getStatus("01100009_01_01"));
+	//	createProcess(1);
+		
+		System.in.read();
+		//createProcess(2);
+		taskStatusUpdate("01100009_01_01","task0","2");
+		//taskStatusUpdate(0,"task0","2");
+		
+		//Process.processTransitions();
+		
+		taskStatusUpdate("01100009_01_01","task0","2");
+		//Process.processTransitions();
+	//	taskStatusUpdate(0,"task1","2");
+		
+	//	Process.processTransitions();
+	//	taskStatusUpdate(0,"task2","2");
+		System.out.println("Status:"+getStatus("01100009_01_01"));
+		//Process.transition(0);
+	//	Process.processTransitions();
+		System.out.println("Status:"+getStatus("01100009_01_01"));
+		//Process.run();
+		
+
+	}
+	
+	/**
+	 * This method is used to add the new agent.
+	 * @param agent
+	 * 			the agent to be added.
+	 */
+	
+	public static  void addAgent(Agent agent)
+	{
+		agents.add(agent);
+	}
+	public static  void addAgent(String stateMachine,Agent agent)
+	{
+		Vector v= (Vector)agentsHt.get(stateMachine);
+		
+		if(v == null)
+			v= new Vector();
+		
+		v.add(agent);
+		agentsHt.put(stateMachine, v);
+	}
+	
+	/**
+	 * This method is used to creating a new process.
+	 * @param pid
+	 * 			id of the process
+	 * @return
+	 * 			The created process.
+	 * @throws Exception
+	 */
+	public synchronized static Process createProcess(String pid) throws Exception
+	{
+		Process p= new Process();
+		
+		p.pid=pid;//processInstances.size();
+		p.startTime=new Date();
+		p.states=createStateMachine(Process.stateMachineClass);
+		System.out.println("PID "+p.pid+" "+pid);
+		p.states.setPid(pid);
+		TestXUIDB.getInstance().saveProcess(p);
+	//	processInstances.add(p);
+		//p.states.transition();
+		transition(p.pid);
+	
+		return p;
+	}
+	
+	/**
+	 * This method updates the status of a process 
+	 * @param pid
+	 * the process id
+	 * @param status1
+	 * the status to set
+	 */
+	
+	public static void updateStatus(String pid, String status1) 
+	{
+		System.out.println(pid);
+		//((Process)processInstances.get(pid)).status=status1;
+		try{
+		Process p=TestXUIDB.getInstance().getInstance().getProcess(pid);
+		p.status=status1;
+		TestXUIDB.getInstance().getInstance().saveProcess(p);
+		}
+		catch(Exception e )
+		{
+			e.printStackTrace();
+		}
+	}
+/**
+ * This method creates the state machine for the process Eg CMEStateMachine for CME process
+ * @return
+ * the created StateMachine
+ * @throws Exception
+ */
+	
+	public static StateMachine createStateMachine(String stateMachineClass) throws Exception
+	{
+	StateMachine sm=	(StateMachine)Class.forName(stateMachineClass).newInstance();
+	return sm;
+	}
+	public static String getStatus(String pid) throws Exception
+	{
+	//return	((Process)processInstances.get(pid)).status;
+		return	TestXUIDB.getInstance().getProcess(pid).status;
+	}
+	public synchronized static  void taskStatusUpdate(String pid,String task, String taskStatus) throws Exception
+	{
+		if(pid!="" && !pid.equals(""))
+		{
+		Process p=TestXUIDB.getInstance().getProcess(pid);
+		System.out.println(" task  is "+task);
+		p.states.onTaskStatusUpdate(task, taskStatus);
+		processTransitions();
+		}
+	}
+	
+	public static Vector getProcesses(String status)
+	{
+		return null;
+	}
+	/**
+	 * This method transitions the process to its next state
+	 * @param pid
+	 * the process to transition.
+	 */
+	public synchronized static void transition(String pid)
+	{
+		TestXUIDB.getInstance().saveTransition("0", pid, 0);
+		//transitionQueue.add(pid+"");
+	}
+	
+	/**
+	 * This methos process all unprocessed transitions in the queue
+	 * @throws Exception
+	 */
+	public synchronized static void processTransitions() throws Exception
+	{
+		//while(transitionQueue.size()>0)
+		while(true)
+		{
+		String[]ret=	TestXUIDB.getInstance().getNextTransition();//Integer.parseInt(transitionQueue.get(0).toString());
+		System.out.println(" RET "+ret);
+		if(ret==null)
+			return;
+		String pid=ret[1];
+		System.out.println("PID..." +pid);
+			//((Process)processInstances.get(pid)).states.transition();
+		Process p= TestXUIDB.getInstance().getProcess(pid);
+		p.status=((StateMachine)p.states).transition();
+			System.out.println("state " +p.states.getCurrentState());
+			runAgents(p);
+			TestXUIDB.getInstance().saveProcess(p);
+		//	transitionQueue.remove(0);
+			TestXUIDB.getInstance().saveTransition(ret[0], pid, 1);
+			
+			
+			
+		}
+		
+	}
+	/**
+	 * This method is intended to be used to run process as a thread. Currently unimplemented.
+	 * @throws Exception
+	 */
+	public static void run() throws Exception
+	{
+		while (true)
+		{
+			processTransitions();
+			Thread.currentThread().sleep(100);
+		}
+	}
+	/**
+	 * This method runs all the agents in a sequence
+	 * @param p
+	 * the process object
+	 */
+	public static void runAgents(Process p)
+	{
+		for(int i=0; i<agents.size();i++)
+		{
+			Agent a= (Agent)agents.get(i);
+			a.stateChange(p);
+			TestXUIDB.getInstance().saveProcess(p);
+			
+		}
+		
+		
+	}
+	public static void runAgents(Process p,String stateMachine)
+	{
+	Vector agents1=(Vector)	agentsHt.get(stateMachine);
+	if(agents1!=null)
+	{
+		for(int i=0; i<agents1.size();i++)
+		{
+			Agent a= (Agent)agents1.get(i);
+			a.stateChange(p);
+			TestXUIDB.getInstance().saveProcess(p);
+			
+		}
+	}
+		
+		
+	}
+	
+	static{
+		InputStream in = Process.class.getResourceAsStream("process.properties");
+		Properties p=new Properties();
+		try {
+			p.load(in);
+	stateMachineClass=p.getProperty("statemachine");
+			String agents=p.getProperty("agents");
+			String agents1[]=agents.split(",");
+			for(int i=0;i<agents1.length;i++)
+			{
+				addAgent((Agent)Class.forName(agents1[i]).newInstance());
+			//	addAgent((Agent)Class.forName(agents1[i]).newInstance());
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			
+			e.printStackTrace();
+		}
+	/*	addAgent(new AssignmentAgent());
+		addAgent(new MatchingAgent());
+		addAgent(new ReMatchingAgent());
+		addAgent(new CompletionAgent());*/ catch (InstantiationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IllegalAccessException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+}
