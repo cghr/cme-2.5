@@ -2,9 +2,11 @@
 /*    2:     */ 
 /*    3:     */ import com.kentropy.model.KenList;
 /*    4:     */ import com.kentropy.process.Process;
+
 /*    5:     */ import java.text.DateFormat;
 /*    6:     */ import java.util.Date;
 /*    7:     */ import java.util.Vector;
+
 /*    8:     */ import net.xoetrope.optional.data.sql.DatabaseTableModel;
 /*    9:     */ import net.xoetrope.xml.XmlElement;
 /*   10:     */ import net.xoetrope.xui.data.XModel;
@@ -258,9 +260,9 @@
 /*  258:1343 */     throw new Error("Unresolved compilation problem: \n");
 /*  259:     */   }
 /*  260:     */   
-/*  261:     */   /**
-/*  262:     */    * @deprecated
-/*  263:     */    */
+/*  261:     */   
+/*  262:     */   
+/*  263:     */   @Deprecated
 /*  264:     */   public void dataPath(String taskPath)
 /*  265:     */   {
 /*  266:1374 */     throw new Error("Unresolved compilation problem: \n");
@@ -286,9 +288,9 @@
 /*  286:1410 */     throw new Error("Unresolved compilation problem: \n");
 /*  287:     */   }
 /*  288:     */   
-/*  289:     */   /**
-/*  290:     */    * @deprecated
-/*  291:     */    */
+/*  289:     */   
+/*  290:     */    @Deprecated
+/*  291:     */    
 /*  292:     */   public boolean checkIfTaskCanBeSaved(String dataPath, String taskPath)
 /*  293:     */   {
 /*  294:1424 */     throw new Error("Unresolved compilation problem: \n");

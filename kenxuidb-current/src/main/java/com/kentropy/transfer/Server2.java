@@ -131,9 +131,9 @@
 /* 131:138 */     this.mc = new MsgChannel(this.sock, 1);
 /* 132:    */   }
 /* 133:    */   
-/* 134:    */   /**
-/* 135:    */    * @deprecated
-/* 136:    */    */
+/* 134:    */   
+/* 135:    */    @Deprecated
+/* 136:    */    
 /* 137:    */   public void run2()
 /* 138:    */   {
 /* 139:    */     try

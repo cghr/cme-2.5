@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
-    <artifactId>cme</artifactId>
-    <groupId>org.cghr.cme</groupId>
-    <version>2.5</version>
-  </parent>
+		<artifactId>cme</artifactId>
+		<groupId>org.cghr.cme</groupId>
+		<version>2.5</version>
+	</parent>
 
 	<groupId>org.cghr.cme</groupId>
 	<artifactId>ken-qa-transformations</artifactId>
@@ -40,6 +41,7 @@
 
 		<!-- DEPENDENCIES VERSIONS -->
 		<junit.version>4.11</junit.version>
+		<cme.version>2.5</cme.version>
 	</properties>
 
 	<dependencies>
@@ -54,14 +56,24 @@
 			<artifactId>xui-core</artifactId>
 			<version>2.0.7</version>
 			<scope>system</scope>
-			<systemPath>${basedir}/../cme-webapp/src/main/resources/WEB-INF/lib/XuiCore_debug_v2_0_7_jdk1_1_8.jar</systemPath>
+			<systemPath>/home/sagpatke/cme-workspace/cme/cme-webapp/src/main/resources/WEB-INF/lib/XuiCore_debug_v2_0_7_jdk1_1_8.jar</systemPath>
 		</dependency>
 		<dependency>
 			<groupId>net.xoetrope</groupId>
 			<artifactId>xui-optional</artifactId>
 			<version>2.0.7</version>
 			<scope>system</scope>
-			<systemPath>${basedir}/../cme-webapp/src/main/resources/WEB-INF/lib/XuiOptional_v2_0_7_jdk1_4.jar</systemPath>
+			<systemPath>/home/sagpatke/cme-workspace/cme/cme-webapp/src/main/resources/WEB-INF/lib/XuiOptional_v2_0_7_jdk1_4.jar</systemPath>
+		</dependency>
+		<dependency>
+			<groupId>org.cghr.cme</groupId>
+			<artifactId>kenxuidb-current</artifactId>
+			<version>${cme.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.cghr.cme</groupId>
+			<artifactId>ken-util</artifactId>
+			<version>${cme.version}</version>
 		</dependency>
 	</dependencies>
 

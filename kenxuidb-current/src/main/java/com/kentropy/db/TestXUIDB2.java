@@ -1425,9 +1425,9 @@
 /* 1425:1686 */     return path1;
 /* 1426:     */   }
 /* 1427:     */   
-/* 1428:     */   /**
-/* 1429:     */    * @deprecated
-/* 1430:     */    */
+/* 1428:     */   
+/* 1429:     */    @Deprecated
+/* 1430:     */    
 /* 1431:     */   public void dataPath(String taskPath) {}
 /* 1432:     */   
 /* 1433:     */   public DateFormat getMysqlDateFormat()
@@ -1466,9 +1466,9 @@
 /* 1466:1736 */     return defaultVal;
 /* 1467:     */   }
 /* 1468:     */   
-/* 1469:     */   /**
-/* 1470:     */    * @deprecated
-/* 1471:     */    */
+/* 1469:     */   
+/* 1470:     */    @Deprecated
+/* 1471:     */    
 /* 1472:     */   public boolean checkIfTaskCanBeSaved(String dataPath, String taskPath)
 /* 1473:     */   {
 /* 1474:1742 */     return true;

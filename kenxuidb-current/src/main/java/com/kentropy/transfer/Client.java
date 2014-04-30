@@ -191,9 +191,9 @@
 /* 191:202 */     throw new Exception("Not Configured");
 /* 192:    */   }
 /* 193:    */   
-/* 194:    */   /**
-/* 195:    */    * @deprecated
-/* 196:    */    */
+/* 194:    */   
+/* 195:    */    @Deprecated
+/* 196:    */    
 /* 197:    */   public void run2()
 /* 198:    */     throws Exception
 /* 199:    */   {
@@ -729,9 +729,9 @@
 /* 729:757 */     mc.close();
 /* 730:    */   }
 /* 731:    */   
-/* 732:    */   /**
-/* 733:    */    * @deprecated
-/* 734:    */    */
+/* 732:    */   
+/* 733:    */    @Deprecated
+/* 734:    */    
 /* 735:    */   public void run1(String resource, String name, String recepients)
 /* 736:    */     throws Exception
 /* 737:    */   {

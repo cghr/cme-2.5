@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
-    <artifactId>cme</artifactId>
-    <groupId>org.cghr.cme</groupId>
-    <version>2.5</version>
-  </parent>
+		<artifactId>cme</artifactId>
+		<groupId>org.cghr.cme</groupId>
+		<version>2.5</version>
+	</parent>
 
 	<groupId>org.cghr.cme</groupId>
 	<artifactId>ken-security-client</artifactId>
@@ -40,6 +41,7 @@
 
 		<!-- DEPENDENCIES VERSIONS -->
 		<junit.version>4.11</junit.version>
+		<cme.version>2.5</cme.version>
 	</properties>
 
 	<dependencies>
@@ -48,6 +50,18 @@
 			<artifactId>junit</artifactId>
 			<version>${junit.version}</version>
 			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.cghr.cme</groupId>
+			<artifactId>ken-crypt</artifactId>
+			<version>${cme.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>de.schlund.pfixxml.util</groupId>
+			<artifactId>md5utils</artifactId>
+			<version>1.0</version>
+			<scope>system</scope>
+			<systemPath>/home/sagpatke/cme-workspace/cme/cme-webapp/src/main/resources/WEB-INF/lib/Md5Utils.jar</systemPath>
 		</dependency>
 	</dependencies>
 
